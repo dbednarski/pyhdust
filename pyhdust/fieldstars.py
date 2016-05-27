@@ -327,6 +327,7 @@ def getTable(data, x, y, z=None, sx=None, sy=None, sz=None, \
                           'full', 'prob' or 'comp' for these
                           pre-defined lists in polt.vfil dictionary.
 
+
         To mount your own list vfilter, select the current tags:
 
       # General tags for target/standard observation
@@ -344,7 +345,7 @@ def getTable(data, x, y, z=None, sx=None, sy=None, sz=None, \
       - 'oth-dth'         delta theta estimated from another filter
     """
 
-    def pro_arr (xx,yy,zz=None,sxx=None,syy=None,szz=None):
+    def pro_arr (xx,yy,zz=None,sxx=None,syy=None,szz=None,phantom=True):
 
         objarr  = [[],[],[]]
         xarr = [[],[]]
@@ -360,9 +361,14 @@ def getTable(data, x, y, z=None, sx=None, sy=None, sz=None, \
                 #                3) case the observation has not the mark 'Y' that indicates
                 #                   it was selected for THAT Be star, since onlyY==True.
                 if (onlyY==True and line[idx2['sel?']]!='Y') or \
-                                     line[idx2[xx]] in ('','~') or \
-                                        line[idx2[yy]] in ('','~') or \
-                                        (zz != None and line[idx2[zz]] in ('','~')):
+                       line[idx2[xx]] in ('','~') or \
+                       line[idx2[yy]] in ('','~') or \
+                       (zz != None and line[idx2[zz]] in ('','~')):
+                    validate = False
+                # Phantom prevents the lists returned by getTable of distinct sizes.
+                elif phantom and (line[idx2[x]] in ('','~') or \
+                                  line[idx2[y]] in ('','~') or \
+                                  (z != None and line[idx2[z]] in ('','~'))):
                     validate = False
                 else:
                     validate = True
@@ -372,6 +378,8 @@ def getTable(data, x, y, z=None, sx=None, sy=None, sz=None, \
 #                           print line[idx2['tgt']] + 'FALSE: sel? = ' + line[idx2['sel?']]
                             break
 
+#                print line
+#                print validate
                 # IF VALIDATE, proceed
                 if validate:
                     objarr[0] +=  [line[idx2['tgt']]]
@@ -392,6 +400,8 @@ def getTable(data, x, y, z=None, sx=None, sy=None, sz=None, \
                     if szz != None:
                         zarr[1] += [line[idx2[szz]]]
 
+#        print objarr, xarr
+
         try: xarr[0] = [float(xelem) for xelem in xarr[0]]
         except: pass
         try: xarr[1] = [float(xelem) for xelem in xarr[1]]
@@ -404,6 +414,8 @@ def getTable(data, x, y, z=None, sx=None, sy=None, sz=None, \
         except: pass
         try: zarr[1] = [float(zelem) for zelem in zarr[1]]
         except: pass
+
+#        print objarr, xarr
 
         return objarr, xarr, yarr, zarr
 
@@ -495,12 +507,19 @@ def getTable(data, x, y, z=None, sx=None, sy=None, sz=None, \
    
 
 
-def graf_field(csvfile, be, vfilter=['no-std'], squared=True, save=False, bin_data=True, \
-                                                    onlyY=False, extens='pdf', unbias='wk'):
+def graf_field(csvfile, be, pmaxfile=None, vfilter=['no-std'], squared=True, save=False, bin_data=True, \
+                                                    onlyY=False, extens='pdf', unbias='wk',label=True):
     """
     Plot a field graph with polarization directions for Be star *be*
     through *csvfile* data table.
 
+    pmaxfile :  outfile from graf_p. If != None, this routine
+                will plot the Pmax values in each position.
+                If == None, will plot the observed values in each filter
+                (in this case, the lenght of the vetors DON`T represent
+                the % of polarization).
+
+    
     squared: use the same scale in both x and y axes?
     
     
@@ -551,26 +570,49 @@ def graf_field(csvfile, be, vfilter=['no-std'], squared=True, save=False, bin_da
         return
     objarr, raarr, decarr, tharr = getTable(data, 'dRA', 'dDEC', z='thet', sz='sthet', \
                                                 vfilter=vfilter, bin_data=bin_data, onlyY=onlyY, unbias=unbias)
+    if len(objarr[0]) != len(raarr[0]) or len(decarr[0]) != len(decarr[0]):
+        print ('ERROR: Distinct sizes of coordinates cells. Verify inside dados.csv file and run again.')
+        return
 #    print tharr
     if objarr == [] or objarr == [[],[],[]]:
         print('No {0} valid data!'.format(be))
         return
 
+#    print objarr, tharr
     fig = plt.figure(1)
     ax = plt.subplot(1, 1, 1)
     ax.set_title('Field Stars - {0}'.format(phc.bes[be]), fontsize=fonts[0], verticalalignment='bottom')
     ax.set_xlabel(r'$\Delta$ RA  (degree)', size=fonts[1])
     ax.set_ylabel(r'$\Delta$ DEC  (degree)', size=fonts[1])
 
+    # Set the parameters for the length of vectors
     leg = []
     vec = [float(veci) for veci in raarr[0]+decarr[0]]
     lsize = 0.075*(max(vec)-min(vec))  # Variable for vectors size
-    delt = 1.5*lsize    # Variable for label names displacement
 
     if squared:
         ax.set_xlim([min(vec)-2*lsize, max(vec)+2*lsize])
         ax.set_ylim([min(vec)-2*lsize, max(vec)+2*lsize])
         ax.autoscale(False)
+
+    if pmaxfile != None:
+        if os.path.exists(pmaxfile):
+            with open(pmaxfile, 'ro') as fr:
+                meanpmax, nn = 0, 0
+                csvread = csv.reader(fr, delimiter=';')#, quoting=csv.QUOTE_NONE, quotechar='')
+                for j, line in enumerate(csvread):
+                    if line[0][0] != '#':
+                        meanpmax += float(line[2])
+                        nn += 1
+                if nn != 0:
+                    meanpmax = meanpmax/nn
+                    ll0 = 0.08*(max(vec)-min(vec))/meanpmax  # Variable for vectors size
+                else:
+                    print('# ERROR: No star inside pmaxfile file!')
+                    return
+        else:
+            print('# ERROR: No pmaxfile file found!')
+            return
 
 
 #    lsize = 0.06*(max(ra)-min(ra))  # Variable for vectors size
@@ -585,57 +627,90 @@ def graf_field(csvfile, be, vfilter=['no-std'], squared=True, save=False, bin_da
 #    tharr[0] = vec.tolist()
 #    raarr[0] = [0 for i in range(len(raarr[0]))]
 #    decarr[0] = [0 for i in range(len(raarr[0]))]
-    
+
+
+    obj = ''
     for i in range(len(objarr[0])):
 
-        obj = objarr[0][i]
-        filt = objarr[1][i]
+        # The line below is to plot only once time for each object when is to use the pmax values.
+        if pmaxfile != None and objarr[0][i] == obj:
+            continue
+        else:
+            obj = objarr[0][i]
+            
         x = float(raarr[0][i])
         y = float(decarr[0][i])
-        thet = float(tharr[0][i])
-        sthet = float(tharr[1][i])
-        color = colrs[filt]
         if y < ymin:
             ymin = y
+
+        # Use values from pmaxfile file
+        if pmaxfile != None:
+            thet, sthet = 0, 0
+            with open(pmaxfile, 'ro') as fr:
+                csvread = csv.reader(fr, delimiter=';')#, quoting=csv.QUOTE_NONE, quotechar='')
+                for j, line in enumerate(csvread):
+                    if line[0] == obj:
+                        thet = float(line[10])
+                        sthet = float(line[11])
+                        pmax = float(line[2])
+                        spmax = (float(line[3])+float(line[4]))/2
+                        color = 'black'
+                
+            if thet == 0 and sthet == 0:
+                print('# WARNING: No star named {0} found inside thetfile file.  The lines won`t be plotted.'.format(obj))
+                continue
+
+            ll = ll0*pmax
+            delt = 1.5*lsize    # Variable for label names displacement
+        # Otherwise, use from csvfile
+        else:
+            filt = objarr[1][i]
+            thet = float(tharr[0][i])
+            sthet = float(tharr[1][i])
+            color = colrs[filt]
+            ll = lsize
+            delt = 1.5*ll    # Variable for label names displacement
             
+           
         # Plot vectors
-        xvert, yvert = gen_polar(x, y, lsize, thet)
+        xvert, yvert = gen_polar(x, y, ll, thet)
         plt.plot(xvert, yvert, color=color)
 
         # Plot errors
-        coords = gen_spolar(x, y, lsize, thet, sthet)
+        coords = gen_spolar(x, y, ll, thet, sthet)
         polygon = Polygon(coords, True, color=color, alpha=0.18)
         ax.add_patch(polygon)
 
         # Print object names
-        if i==0 or obj not in [ileg[0] for ileg in leg]:
-            n=0
+        if label:
+            if i==0 or obj not in [ileg[0] for ileg in leg]:
+                n=0
 
-            # Compute scale to fix the label positions
-            if squared:
-                scale = 0.035*abs(ax.get_ylim()[1] - ax.get_ylim()[0])
-            else:
-                scale = 0.06*abs(min([float(idecarr) for idecarr in decarr[0]]) - \
-                            max([float(idecarr) for idecarr in decarr[0]]))
+                # Compute scale to fix the label positions
+                if squared:
+                    scale = 0.035*abs(ax.get_ylim()[1] - ax.get_ylim()[0])
+                else:
+                    scale = 0.06*abs(min([float(idecarr) for idecarr in decarr[0]]) - \
+                                max([float(idecarr) for idecarr in decarr[0]]))
 
-            # Verify if another label shall be closer to the current label
-            for ileg in leg:
-                if abs(y - ileg[2]) < delt and abs(x - ileg[1]) < delt:
-                    if n==0:
-                        x1 = ileg[1]
-                        y1 = ileg[2]
-                    n += 1
-            if n == 0:
-                x1=x
-                yleg = y-lsize*1.5
-                objleg = fixName(obj)
-            else:
-                yleg = y1-lsize*1.5-n*scale
-                objleg = '+ ' + fixName(obj)
-            ax.text(x1, yleg, '{0}'.format(objleg), horizontalalignment='center', verticalalignment='baseline', fontsize=fonts[3], color='black')
-            leg += [[obj,x,y]]
-            if yleg < ymin:
-                ymin = yleg
+                # Verify if another label shall be closer to the current label
+                for ileg in leg:
+                    if abs(y - ileg[2]) < delt and abs(x - ileg[1]) < delt:
+                        if n==0:
+                            x1 = ileg[1]
+                            y1 = ileg[2]
+                        n += 1
+                if n == 0:
+                    x1=x
+                    yleg = y-lsize*1.5
+                    objleg = fixName(obj)
+                else:
+                    yleg = y1-lsize*1.5-n*scale
+                    objleg = '+ ' + fixName(obj)
+                ax.text(x1, yleg, '{0}'.format(objleg), horizontalalignment='center', verticalalignment='baseline', fontsize=fonts[3], color='black')
+                leg += [[obj,x,y]]
+                if yleg < ymin:
+                    ymin = yleg
 
     # Print point for Be star
     ax.plot([0,0], [0,0], 'o', color='black', markersize=7)
@@ -1175,8 +1250,8 @@ def unbiasData(p, s, estim='wk'):
 
 
 
-def graf_p(csvfile, be, thetfile=None, path=None, vfilter=[], save=False, \
-           bin_data=True, onlyY=False, every=False, rotate=False, fit=True, unbias='wk', law='w82', extens='pdf'):
+def graf_p(csvfile, be, thetfile=None, path=None, vfilter=[], vfilter_be=[], save=False, \
+           bin_data=True, onlyY=False, useB=True, every=False, propag=True, rotate=False, fit=True, propmode='comb', unbias='wk', law='w82', extens='pdf'):
     """
     Plot  P x wavelength for star 'be' and operate over a
     /'be'_is.csv file. The field stars are read from 'csvfile'.
@@ -1186,10 +1261,6 @@ def graf_p(csvfile, be, thetfile=None, path=None, vfilter=[], save=False, \
 
     'csvfile' : location of dados.csv (field stars data).
 
-    'path' : the path where is located the log file for star 'be'
-             (out from polt.genTarget). If None, it is supposed
-             inside the current directory (.).
-
     'bin_data': bin data in graphs?
     
     'onlyY'   : use only the field stars with 'Y' marks (field
@@ -1198,9 +1269,23 @@ def graf_p(csvfile, be, thetfile=None, path=None, vfilter=[], save=False, \
     'thetfile' : file with the intrinsic angles (oufile from
                  fs.genInt). If 'thetfile' != None, plot the
                  ISP component parallel to the disk of the Be
-                 star. It is done by rotating the data in QU
-                 diagram at the angle corresponding to the disk
-                 inclination.
+                 star.
+
+    'useB'   :   Use the b*cos(psi) values fom 'thetfile' to plot
+                 the ISP component parallel to the disk of the Be
+                 star? Case False, rotates the data in QU diagram
+                 at the angle corresponding to the disk inclination
+                 read from 'thetfile'.
+
+    'vfilter'  : tags to be filtered of observations of field stars
+
+    'path' : (for useB=False) the path where is located the log file for star 'be'
+             (out from polt.genTarget). If None, it is supposed
+             inside the current directory (.).
+
+    'vfilter_be' : (for useB=False) tags to be filtered of data in
+                   the computation of ISP parallel to the disc, when
+                   'thetfile' != None.
 
     'unbias'   :   Estimator to unbias the data when 'y' or 'z'
                    is equals to 'p' or 'thet'. Three options:
@@ -1212,10 +1297,20 @@ def graf_p(csvfile, be, thetfile=None, path=None, vfilter=[], save=False, \
                    description of routines 'unbiasData' and
                    'meanAngle'.
 
-    'every'    : use one intrinsic angle for each one filter to
-                 obtain the // component? If every=False makes
+    'every'    : (for useB=False) use one intrinsic angle for each one
+                 filter to obtain the // component? If every=False makes
                  all data to use a mean value at the -4:-2 collums
                  (22th to 24th) from 'thetfile'
+
+    'propag'   : (for useB=False) propagates the uncertainies of the
+                 intrinsic angle to the rotated QU values in computation
+                 of ISP parallel to the disc, when 'thetint' != None?
+
+    'propmode' : (for useB=False) mode to compute the error from ISP parallel
+                 to the disc, when 'thetint' != None and useB=False.
+                 'stddev' : only the stddev of the mean
+                 'prop'   : only the propagated from individual data
+                 'comb'   : the combined between them
 
     'fit': fit the ISP using MCMC? Case True, generate the
            graphs and a file ./'be'_is.csv with the best values.
@@ -1235,8 +1330,8 @@ def graf_p(csvfile, be, thetfile=None, path=None, vfilter=[], save=False, \
 
     CONSIDERATIONS:
 
-    - Error for parallel component is the combination between
-    the propagated error and stddev.
+    - When useB=False, error for parallel component is the
+    combination between the propagated error and stddev.
     - Error of standard stars is propagated to the field stars
     - The polarization angles (PA) inside 'be'_is.csv are binned
       over Stokes parameters ALWAYS. The errors are computed by the
@@ -1285,6 +1380,8 @@ def graf_p(csvfile, be, thetfile=None, path=None, vfilter=[], save=False, \
     # Verify if vfilter is a special filter
     if vfilter in polt.vfil.keys():
         vfilter = polt.vfil[vfilter]
+    if vfilter_be in polt.vfil.keys():
+        vfilter_be = polt.vfil[vfilter_be]
 
     plt.close('all')
 
@@ -1521,18 +1618,56 @@ def graf_p(csvfile, be, thetfile=None, path=None, vfilter=[], save=False, \
     # Plot ISP parallel to the disk direction of Be star
     if thetfile != None:
 
-        lbd, pBe, sBe, devBe = rotQUBe(be, thetfile, path=path, every=every, vfilter=vfilter)
-        # Using combined error for points to // pol to Be star
-        s = [np.sqrt(sBe[i]**2+devBe[i]**2) for i in range(len(sBe))]
+        if not useB:
+            lbd, pBe, sBe, devBe = rotQUBe(be, thetfile, path=path, every=every, vfilter=vfilter_be, propag=propag)
+            # Using combined error for points to // pol to Be star
+            if propmode == 'stddev':
+                s = devBe
+            elif propmode == 'prop':
+                s = sBe
+            elif propmode == 'comb':
+                s = [np.sqrt(sBe[i]**2+devBe[i]**2) for i in range(len(sBe))]
+            else:
+                print('WARNING: `propmode` parameter not valid as {0}. Activating as `comb` (see what it means in the help...)'.format(propmode))
+                s = [np.sqrt(sBe[i]**2+devBe[i]**2) for i in range(len(sBe))]
+        else:
+            try:
+                f0 = open(thetfile, 'ro')
+                reader = csv.reader(f0, delimiter=';')
+            except:
+                print('# ERROR: Can\'t read file {0}.'.format(thetfile))
+                raise SystemExit(1)
+
+            pBe, lbd, s = [],[],[]
+            for line in reader:
+                if line[0] == be:
+                    try:
+                        for i in range(26,40,3):
+#                            print line[i], line[i+1], line[i+2]
+                            if float(line[i]) != 0:
+                                lbd += [phc.lbds[filters[int((i-26)/3)]]]
+                                pBe += [float(line[i])]
+                                s += [(float(line[i+1])+float(line[i+2]))/2]
+                            else:
+                                print('# WARNING: No b*cos(psi) value for filter {0}.'.format(filters[int((i-26)/3)]))
+                    except:
+                        print line[i], line[i+1], line[i+2]
+                        print('# ERROR: Components in lines of {0} file seem not be float type.'.format(thetfile))
+                        return
+
+            if pBe == []:
+                print('# WARNING: Star {0} not found in {1} file.'.format(be, thetfile))
+
 
         if lbd != []:
-            ax.errorbar(lbd, pBe, yerr=s, label=r'$//$ comp.', linestyle='', \
+#            print lbd, pBe, s
+            ax.errorbar(lbd, pBe, yerr=s, label=r'$P_{IS}^\perp$', linestyle='', \
                                                             marker='s', color='black')
 
             if fit:
 
                 if usePrevious:
-                    pmax_fit, lmax_fit = copyFit(be, csvout, secondcol=fixName(be)+' (//)')
+                    pmax_fit, lmax_fit = copyFit(be, csvout, secondcol=fixName(be)+' (perp)')
                 else:
                     pmax_fit, lmax_fit = [], []
 
@@ -1542,7 +1677,7 @@ def graf_p(csvfile, be, thetfile=None, path=None, vfilter=[], save=False, \
                     print ''
                     pmax_fit, lmax_fit, chi2 = fitSerk(lb, pBe, s, star=be, extens=extens)
 
-                    csvout.writerow([be, fixName(be)+' (//)'] + list(pmax_fit) + list(lmax_fit) + [chi2, len(pBe)] + ['0']*3 + ['0','0','---',''] + ['0']*15)
+                    csvout.writerow([be, fixName(be)+' (perp)'] + list(pmax_fit) + list(lmax_fit) + [chi2, len(pBe)] + ['0']*3 + ['0','0','---',''] + ['0']*15)
 
                 ll = np.linspace(3000.,8300.,100)
                 pp = np.array([])
@@ -1674,10 +1809,15 @@ def graf_pradial(csvfile, be, filt='pmax', vfilter=[], isfile=None, fit=False, \
 
         with open(isfile, 'r') as fr:
             csvread = csv.reader(fr, delimiter=';')#, quoting=csv.QUOTE_NONE, quotechar='')
+
+#            print objarr, plxarr
+#            print len(objarr[0]), len(plxarr[0])
+
             for i, line in enumerate(csvread):
 
-                plotpointi = line[14]
-                useinfiti = line[15]
+#                print line
+                plotpointi = line[13]
+                useinfiti = line[14]
                 if line[0] == '' or line[0][0] == '#':
                     continue
 
@@ -1686,29 +1826,30 @@ def graf_pradial(csvfile, be, filt='pmax', vfilter=[], isfile=None, fit=False, \
                     if fit and useinfiti == '0':
                         # read paralaxes from csvfile
                         for j, obs in enumerate(objarr[0]):
-                            if line[0]==obs:
+                            if line[0]==obs and float(plxarr[0][j]) > 0:
                                 x_filt[0] += [float(plxarr[0][j])]
                                 x_filt[1] += [float(plxarr[1][j])]
+                                obj_filt += [line[1]]
+                                y_filt[0] += [float(line[2])]
+                                y_filt[1] += [float(line[3])]
+                                y_filt[2] += [float(line[4])]
+                                colors_filt += [gen_color(csvfile, be, line[0], onlyY=onlyY)]
                                 break
-                        obj_filt += [line[1]]
-                        y_filt[0] += [float(line[2])]
-                        y_filt[1] += [float(line[3])]
-                        y_filt[2] += [float(line[4])]
-                        colors_filt += [gen_color(csvfile, be, line[0], onlyY=onlyY)]
+
                     # b) Main data
                     else:
                         # read paralaxes from csvfile
                         for j, obs in enumerate(objarr[0]):
-                            if line[0]==obs:
+                            if line[0]==obs and float(plxarr[0][j]) > 0:
                                 x[0] += [float(plxarr[0][j])]
                                 x[1] += [float(plxarr[1][j])]
+                                obj += [line[1]]
+                                y[0] += [float(line[2])]
+                                y[1] += [float(line[3])]
+                                y[2] += [float(line[4])]
+                                colors += [gen_color(csvfile, be, line[0], onlyY=onlyY)]
                                 break
-                        obj += [line[1]]
-                        y[0] += [float(line[2])]
-                        y[1] += [float(line[3])]
-                        y[2] += [float(line[4])]
-                        colors += [gen_color(csvfile, be, line[0], onlyY=onlyY)]
-
+                                
                     if len(line[1]) > 13:
                         longname = True
 
@@ -1777,6 +1918,7 @@ def graf_pradial(csvfile, be, filt='pmax', vfilter=[], isfile=None, fit=False, \
 
         pmaxfit = param[0]*x0[0]+param[1]
         spmaxfit = np.sqrt((param[0]*x0[1])**2 + (sparam[0]*x0[0])**2 + sparam[1]**2)
+        spmaxfitcoz = param[0]*x0[1]
         
         print(55*'-')
         print '  Total least squares fit  (y = a*x+b):'
@@ -1790,7 +1932,13 @@ def graf_pradial(csvfile, be, filt='pmax', vfilter=[], isfile=None, fit=False, \
         print ''
         print '  Extrapolated Pmax: '
         print ''
-        print '          Pmax = {0:.4f} +- {1:.4f}'.format(pmaxfit, spmaxfit)
+        print '          Pmax = {0:.4f} +- {1:.4f}*'.format(pmaxfit, spmaxfitcoz)
+        print ''
+        print ''
+        print '   * Propagating only the Be paralax; the error'
+        print '     propagating the sigma_a and sigma_b give'
+        print '     us {0:.4f}'.format(spmaxfit)
+        print ''
         print(55*'-')
         print ''
 
@@ -2116,7 +2264,7 @@ def genAll(csvfile, path=None, genlogs=True, genint=True, vfilter=['no-std'], vf
 
 
 
-def genInt(be, path=None, vfilter=['no-std'], extens='pdf'):
+def genInt(be, thetfileold=None, path=None, vfilter=['no-std'], extens='pdf'):
     """
     Call polt.graf_qu() for Be star 'be' and save the intrinsic
     angles inside thet_int.csv.
@@ -2167,14 +2315,18 @@ def genInt(be, path=None, vfilter=['no-std'], extens='pdf'):
     else:
         csvwrite.writerow(['#obj','name']+['th_int', 'sth_int_+', 'sth_int_-', 'n']*5 +\
                           ['th_int', 'sth_int_+',' sth_int_-', 'comment'] +\
-                          ['b*costh', 'sb*costh_+', 'sb*costh_-']*5 +\
+                          ['b*cos(2th)', 'sb*cos(2th)_+', 'sb*cos(2th)_-']*5 +\
                           ['Second peaks: ', 'repeated 7by7', 'cells following','these labels in', 'subheader below'])
         csvwrite.writerow(['#','']+['u']*4+['b']*4+['v']*4+['r']*4+['i']*4+[' ']*4 +\
                           ['u']*3+['b']*3+['v']*3+['r']*3+['i']*3 +\
-                          ['filter', 'th_int', 'sth_int_+', 'sth_int_-','b*costh', 'sb*costh_+', 'sb*costh_-'])#+['to use']*4)
-                
-    arr_u, arr_b, arr_v, arr_r, arr_i = polt.graf_qu('{0}/{1}.log'.format(path,be),
-                                            mcmc=True, odr=False, save=True, extens=extens, Vb_ran=[0., 1.])
+                          ['filter', 'th_int', 'sth_int_+', 'sth_int_-','b*cos(2th)', 'sb*cos(2th)_+', 'sb*cos(2th)_-'])#+['to use']*4)
+
+    if thetfileold==None:
+        arr_u, arr_b, arr_v, arr_r, arr_i = polt.graf_qu('{0}/{1}.log'.format(path,be),
+                                            mcmc=True, odr=False, save=True, extens=extens, Vb_ran=[0., 1.], vfilter=vfilter)
+    else:
+        arr_u, arr_b, arr_v, arr_r, arr_i = polt.graf_qu('{0}/{1}.log'.format(path,be),
+                                            mcmc=False, thetfile=thetfileold, odr=False, save=True, extens=extens, vfilter=vfilter)
 
 #        arr_u[0][0] = np.arctan(arr_u[0][0])*90/np.pi
 #        arr_u[1][0] = (90*arr_u[1][0])/(np.pi*(arr_u[1][0]**2+1))
@@ -2200,10 +2352,10 @@ def genInt(be, path=None, vfilter=['no-std'], extens='pdf'):
     # The operation '/2' below is because the intrinsic angle is the inclination angle of the
     # line in in QU diagram diveded by 2! (because PA = 1/2*arctan(U/Q))
     csvwrite.writerow([be, fixName(be)]+[arr_u[0][0]/2]+[arr_u[1][0]/2]+[arr_u[2][0]/2]+[arr_u[3]]+\
-                                        [arr_b[0][0]/2]+[arr_b[1][0]/2]+[arr_b[2][0]/2]+[arr_b[3]/2]+\
-                                        [arr_v[0][0]/2]+[arr_v[1][0]/2]+[arr_v[2][0]/2]+[arr_v[3]/2]+\
-                                        [arr_r[0][0]/2]+[arr_r[1][0]/2]+[arr_r[2][0]/2]+[arr_r[3]/2]+\
-                                        [arr_i[0][0]/2]+[arr_i[1][0]/2]+[arr_i[2][0]/2]+[arr_i[3]/2]+\
+                                        [arr_b[0][0]/2]+[arr_b[1][0]/2]+[arr_b[2][0]/2]+[arr_b[3]]+\
+                                        [arr_v[0][0]/2]+[arr_v[1][0]/2]+[arr_v[2][0]/2]+[arr_v[3]]+\
+                                        [arr_r[0][0]/2]+[arr_r[1][0]/2]+[arr_r[2][0]/2]+[arr_r[3]]+\
+                                        [arr_i[0][0]/2]+[arr_i[1][0]/2]+[arr_i[2][0]/2]+[arr_i[3]]+\
                                         ['','','','---']+\
                                         [arr_u[0][1]]+[arr_u[1][1]]+[arr_u[2][1]]+\
                                         [arr_b[0][1]]+[arr_b[1][1]]+[arr_b[2][1]]+\
@@ -2225,36 +2377,49 @@ def genInt(be, path=None, vfilter=['no-std'], extens='pdf'):
 
 
 
-def rotQU(q, u, sq, su, ang, sang):
+def rotQU(q, u, sq, su, ang, sang, propag=True):
     """
     Rotates lists/arrays q and u in QU diagram at an angle
     2*(ang +- sang) (clockwise).
 
     Look that if 'ang' is the mean polarization angle,
     this rotation will transpose all polarization to
-    Q parameter. U parameter will have residual variations
+    U parameter. Q parameter will have residual variations
     with respect to the 0.
 
     Return q_rot, u_rot, sq_rot, su_rot
+
+    propag : propagates the 'sang' to the  uncertainties
+             if rotated QU?
 
     Todo: sometimes it's better don't use any error value
     for ang?
 
     """
-
+    
 #    fig = plt.figure(1)
 #    ax = plt.subplot(1, 1, 1)
+
+    rad = 2*ang*np.pi/180.
+    if propag:
+        srad = 2*sang*np.pi/180.
+    else:
+        srad = 0.
+
+    print u
+    print 
 
     # Rotates each QU value
     qRot, sqRot, uRot, suRot = [],[],[],[]
     for i in range(len(q)):
-        rad = 2*ang*np.pi/180.
-        srad = 2*sang*np.pi/180.
         qRot += [q[i]*np.cos(rad)+u[i]*np.sin(rad)]
         uRot += [-q[i]*np.sin(rad)+u[i]*np.cos(rad)]
         sqRot += [np.sqrt((uRot[i]*srad)**2+(sq[i]*np.cos(rad))**2+(su[i]*np.sin(rad))**2)]
         suRot += [np.sqrt((qRot[i]*srad)**2+(sq[i]*np.sin(rad))**2+(su[i]*np.cos(rad))**2)]
-
+#        print q[i], u[i], sq[i], su[i]
+#        print qRot[i]*srad
+#        print sq[i]*np.sin(rad)
+#        print su[i]*np.cos(rad)
 #    ax.errorbar(q,u,xerr=sq,yerr=su)
 #    ax.errorbar(qRot,uRot,xerr=sqRot,yerr=suRot)
 #    plt.show(fig)
@@ -2264,7 +2429,7 @@ def rotQU(q, u, sq, su, ang, sang):
 
 
 
-def rotQUBe(be, thetfile, path=None, every=False, vfilter=['no-std']):
+def rotQUBe(be, thetfile, path=None, every=False, propag=True, vfilter=['no-std']):
     """
     Rotates the QU values for Be star 'be' in the intrinsic
     angle specified inside thetfile and computes the <Q'>
@@ -2284,6 +2449,10 @@ def rotQUBe(be, thetfile, path=None, every=False, vfilter=['no-std']):
                  a mean value at the -4:-2 collums (22th to 24th)
                  from 'thetfile'.
 
+    'propag'   : propagates the uncertainies of the intrinsic angle
+                 to the rotated QU values? Note that 'propag'
+                 parameter will only act over sigma U' values among
+                 all the four output lists.
 
     CONSIDERATIONS:
 
@@ -2358,22 +2527,25 @@ def rotQUBe(be, thetfile, path=None, every=False, vfilter=['no-std']):
             j += 1
             continue
 
-        JD, p, q, u, s, thet, sdth = [],[],[],[],[],[],[]
+        JD, p, q, u, s, tht, sdth = [],[],[],[],[],[],[]
         for line in lines:
             if line[3] == filt and line[16] != 'E' and not any(sub in line[17] for sub in vfilter):
                 JD += [float(line[0])]
-                p += [float(line[9])]
+                p += [float(line[8])]
                 q += [float(line[9])]
                 u += [float(line[10])]
-                thet += [float(line[11])]
+                tht += [float(line[11])]
                 s += [float(line[12])]
                 sdth += [float(line[7])]
+#                print '*'*40
+#                print p[-1], u[-1], s[-1]
 
-        lixo, sq, su = polt.propQU(p, thet, s, sdth)
+        lixo, sq, su = polt.propQU(p, tht, s, sdth)
+#        print sq, su, s
 
         if len(q) != 0:
             # Rotates each QU value
-            qRot, uRot, sqRot, suRot = rotQU(q,u,sq,su,thet[j],sthet[j])
+            qRot, uRot, sqRot, suRot = rotQU(q,u,sq,su,thet[j],sthet[j],propag=propag)
 
             # Computes the mean of rotated QU parameters, propagates the errors and compute stddev
             if len(q) != 0:
@@ -2384,6 +2556,10 @@ def rotQUBe(be, thetfile, path=None, every=False, vfilter=['no-std']):
                 sqqRot[1] += [np.std(qRot)/np.sqrt(len(qRot))]
                 suuRot[0] += [np.sqrt(sum([el**2 for el in suRot]))/len(suRot)]
                 suuRot[1] += [np.std(uRot)/np.sqrt(len(uRot))]
+
+#            print uRot, suRot
+#            print suuRot[0][-1]
+#            print suuRot[1][-1]
 
         j += 1
 
@@ -2771,7 +2947,7 @@ def fitSerk(larr, parr, sarr, star='', law='w82', n_burnin=300, n_mcmc=800, \
 
     # Setting parameters and limits
     Pmax_max = 9.
-    Pmax_min = 0.
+    Pmax_min = -9.
     lmax_max = 1.
     lmax_min = 0.
     intervalos = np.array([[Pmax_min, Pmax_max], [lmax_min, lmax_max]])
@@ -2810,3 +2986,258 @@ def fitSerk(larr, parr, sarr, star='', law='w82', n_burnin=300, n_mcmc=800, \
     return pmax_fit, lmax_fit, chi
 
 
+
+
+
+def graf_pperp(be, thetfile=None, path=None, plotB=True, plotU=True, plotUevery=True, fit=True, \
+               invertY=False, propag=True, propmode='comb', law='w82', vfilter_be=[], save=False, extens='pdf'):
+    """
+    Plot P x wavelength for the ISP perpendicular to the
+    QU intrinsic line in QU diagram.
+
+
+    'be'      : Be star to plot
+
+    'thetfile' : (for useB=False) file with the intrinsic angles (oufile from
+                 fs.genInt).
+
+    plotB'   :   Plot b*cos(psi) values from 'thetfile' as estimation of
+                 ISP component perpendicular to the QU line of the Be
+                 star?
+
+    plotU    :   Plot the averages of rotated data in QU diagram at the angle
+                 corresponding to the disk inclination read from 23-25th
+                 lines inside 'thetfile'? 
+
+    plotUevery :   Like plotU, but uses one intrinsic angle for each one
+                   filter.
+
+
+    'fit': fit using MCMC? Case True, generate (or append lines)
+           in the file ./'be'_is_perp.csv with the best values.
+
+    'path' : (for useB=False) the path where is located the log file for star 'be'
+             (out from polt.genTarget). If None, it is supposed
+             inside the current directory (.).
+
+    'vfilter_be' : (for useU/useUevery True) tags to be filtered of data in
+                   the computation of ISP perpendicular to the QU line.
+
+    'propag'   : (for useU/useUevery True) propagates the uncertainies of the
+                 intrinsic angle to the rotated QU values in computation
+                 of ISP perp to the QU line?
+
+    'propmode' : (for useB=False) mode to compute the error from ISP perp 
+                 to the QU line.
+                 'stddev' : only the stddev of the mean
+                 'prop'   : only the propagated from individual data
+                 'comb'   : the combined between them
+
+
+
+    CONSIDERATIONS:
+
+
+
+    """
+
+    import time
+
+
+    if path == None:
+        path = os.getcwd()
+
+
+    # Verify if vfilter is a special filter
+    if vfilter_be in polt.vfil.keys():
+        vfilter_be = polt.vfil[vfilter_be]
+
+    plt.close('all')
+
+
+    if os.path.exists('{0}_is_perp.csv'.format(be)):
+        fout = open('{0}_is_perp.csv'.format(be), 'a')
+        csvout = csv.writer(fout, delimiter=';')#, quoting=csv.QUOTE_NONE, quotechar='')
+    else:
+        fout = open('{0}_is_perp.csv'.format(be), 'w')
+        csvout = csv.writer(fout, delimiter=';')#, quoting=csv.QUOTE_NONE, quotechar='')
+        csvout.writerow(['#obj','#name']+['Pmax','sPmax_+','sPmax_-', 'lmax','slmax_+','slmax_-']+['chi','n']+\
+                        ['<th>', 's<th>','<p/sp>']+\
+                        ['plot point?', 'use in fit?', 'comments','']+\
+                        ['run date'])
+        
+
+
+#        objarr_tht, lixo, thtarr = getTable(data, 'filt', 'thet', sy='sthet',  \
+#                                         vfilter=vfilter_thet, bin_data=True, onlyY=onlyY, unbias=unbias)
+                        
+
+    # Initialize the graph
+    fig = plt.figure()
+    ax = plt.subplot(1, 1, 1)
+
+    ax.set_title('Perpendicular ISP - {0}'.format(phc.bes[be]), fontsize=fonts[0], verticalalignment='bottom')
+    ax.set_xlabel(r'$\lambda\ (\AA)$', size=fonts[1])
+    ax.set_ylabel('P (%)', size=fonts[1])
+    ax.set_xlim([2500, 8500])
+        
+
+
+
+    if plotB:
+
+        try:
+            f0 = open(thetfile, 'ro')
+            reader = csv.reader(f0, delimiter=';')
+        except:
+            print('# ERROR: Can\'t read file {0}.'.format(thetfile))
+            raise SystemExit(1)
+
+        pBe, lbd, s = [],[],[]
+        for line in reader:
+            if line[0] == be:
+                try:
+                    for i in range(26,40,3):
+#                            print line[i], line[i+1], line[i+2]
+                        if float(line[i]) != 0:
+                            lbd += [phc.lbds[filters[int((i-26)/3)]]]
+                            pBe += [float(line[i])]
+                            s += [(float(line[i+1])+float(line[i+2]))/2]
+                        else:
+                            print('# WARNING: No b*cos(psi) value for filter {0}.'.format(filters[int((i-26)/3)]))
+                except:
+                    print line[i], line[i+1], line[i+2]
+                    print('# ERROR: Components in lines of {0} file seem not be float type.'.format(thetfile))
+                    return
+
+        if pBe != []:
+
+            ax.errorbar(lbd, pBe, yerr=s, label=r'$P_{IS}^\perp\, (b\cos\psi)$', linestyle='', \
+                                                            marker='o', color='black')
+            if fit:
+                # Convert to microns
+                lb = [lbi/10000 for lbi in lbd]
+                print ''
+                pmax_fit, lmax_fit, chi2 = fitSerk(lb, pBe, s, star=be, extens=extens)
+
+                csvout.writerow([be, fixName(be)+' (bcos psi)'] + list(pmax_fit) + list(lmax_fit) + [chi2, len(pBe)] + ['0']*3 + ['0','0','---',''] + [time.strftime("%Y/%m/%d - %I:%M %p")])
+
+                ll = np.linspace(3000.,8300.,100)
+                pp = np.array([])
+                for lli in ll:
+                    pp = np.append(pp, polt.serkowski(pmax_fit[0], lmax_fit[0]*10000, lli, law=law, mode=2))
+                # Only plot the graph if there are more than one data, because with an only point
+                # the curve is not defined! But the emcee was runned to generate the covariance map
+                if len(pBe) > 1:
+                    ax.plot(ll, pp, color='black', ls='-')
+
+        else:
+            print('# WARNING: Star {0} not found in {1} file.'.format(be, thetfile))
+
+
+
+    if plotU:
+
+        lbd, pBe, sBe, devBe = rotQUBe(be, thetfile, path=path, every=False, vfilter=vfilter_be, propag=propag)
+        # Using combined error for points to // pol to Be star
+        if propmode == 'stddev':
+            s = devBe
+        elif propmode == 'prop':
+            s = sBe
+        elif propmode == 'comb':
+            s = [np.sqrt(sBe[i]**2+devBe[i]**2) for i in range(len(sBe))]
+        else:
+            print('WARNING: `propmode` parameter not valid as {0}. Activating as `comb` (see what it means in the help...)'.format(propmode))
+            s = [np.sqrt(sBe[i]**2+devBe[i]**2) for i in range(len(sBe))]
+
+
+        if lbd != []:
+
+            ax.errorbar(lbd, pBe, yerr=s, label=r'$P_{IS}^\perp\, (<U\'>)$', linestyle='', \
+                                                           marker='^', color='DodgerBlue')
+            if fit:
+                # Convert to microns
+                lb = [lbi/10000 for lbi in lbd]
+                print ''
+                pmax_fit, lmax_fit, chi2 = fitSerk(lb, pBe, s, star=be, extens=extens)
+
+                csvout.writerow([be, fixName(be)+' (<U`>)'] + list(pmax_fit) + list(lmax_fit) + [chi2, len(pBe)] + ['0']*3 + ['0','0','---',''] + [time.strftime("%Y/%m/%d - %I:%M %p")])
+
+                ll = np.linspace(3000.,8300.,100)
+                pp = np.array([])
+                for lli in ll:
+                    pp = np.append(pp, polt.serkowski(pmax_fit[0], lmax_fit[0]*10000, lli, law=law, mode=2))
+                # Only plot the graph if there are more than one data, because with an only point
+                # the curve is not defined! But the emcee was runned to generate the covariance map
+                if len(pBe) > 1:
+                    ax.plot(ll, pp, color='DodgerBlue', ls=':')
+
+        else:
+            print('WARNING: don`t displaying the <U`> values because can`t rotate for every=False')
+
+
+
+    if plotUevery:
+
+        lbd, pBe, sBe, devBe = rotQUBe(be, thetfile, path=path, every=True, vfilter=vfilter_be, propag=propag)
+        # Using combined error for points to // pol to Be star
+        if propmode == 'stddev':
+            s = devBe
+        elif propmode == 'prop':
+            s = sBe
+        elif propmode == 'comb':
+            s = [np.sqrt(sBe[i]**2+devBe[i]**2) for i in range(len(sBe))]
+        else:
+            print('WARNING: `propmode` parameter not valid as {0}. Activating as `comb` (see what it means in the help...)'.format(propmode))
+            s = [np.sqrt(sBe[i]**2+devBe[i]**2) for i in range(len(sBe))]
+
+        if lbd != []:
+#            print lbd, pBe, s
+            ax.errorbar(lbd, pBe, yerr=s, label=r'$P_{IS}^\perp\, (<U\'>\, 2)$', linestyle='', \
+                                                            marker='s', color='OrangeRed')
+            if fit:
+                # Convert to microns
+                lb = [lbi/10000 for lbi in lbd]
+                print ''
+                pmax_fit, lmax_fit, chi2 = fitSerk(lb, pBe, s, star=be, extens=extens)
+
+                csvout.writerow([be, fixName(be)+' (<U`> every)'] + list(pmax_fit) + list(lmax_fit) + [chi2, len(pBe)] + ['0']*3 + ['0','0','---',''] + [time.strftime("%Y/%m/%d - %I:%M %p")])
+
+                ll = np.linspace(3000.,8300.,100)
+                pp = np.array([])
+                for lli in ll:
+                    pp = np.append(pp, polt.serkowski(pmax_fit[0], lmax_fit[0]*10000, lli, law=law, mode=2))
+                # Only plot the graph if there are more than one data, because with an only point
+                # the curve is not defined! But the emcee was runned to generate the covariance map
+                if len(pBe) > 1:
+                    ax.plot(ll, pp, color='OrangeRed', ls='--')
+
+        else:
+            print('WARNING: don`t displaying the <U`> values because can`t rotate for every=False')
+
+
+
+    if invertY:
+        ax.set_ylim(ax.get_ylim()[::-1])
+
+    leg = ax.legend(loc='best', borderaxespad=0., numpoints=1, prop={'size':fonts[4]})
+    leg.get_frame().set_alpha(0.5)
+    
+    # Setting sizes
+    ax.xaxis.label.set_fontsize(fonts[1])
+    ax.yaxis.label.set_fontsize(fonts[1])
+    for item in (ax.get_xticklabels() + ax.get_yticklabels()):
+        item.set_fontsize(fonts[2])
+
+    if save:
+        fig.savefig('{0}_pperp.{1}'.format(be,extens), bbox_inches='tight')
+    else:
+        fig.show()
+
+    print('\nDone!\n')
+    fout.close()
+        
+    return
+
+
+    
