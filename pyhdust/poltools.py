@@ -2356,6 +2356,104 @@ def genTarget(target, path=None, path2=None, ispol=None, skipdth=False, delta=3.
 #################################################
 #################################################
 #################################################
+def fixISP(logfile, ispol, path2=None):
+    """
+    Correct the interstellar polarization in file logfile
+
+    logfile: outfile from genTarget.
+    ispol: the Serkowski parameters [P_max, lambda_max, theta_IS]
+            to correct IS polarization (P_max ein % and lambda_max in
+            Angstrom). If ispol==None, don't make the correction
+            of ISP.
+    path2:   path where to save the data file. If None, it is
+             supposed the same of logfile.
+
+
+    """
+
+    star = _phc.trimpathname(logfile)[1].split('.')[0].split('_')[0]
+    if star in _phc.bes:
+        be = _phc.bes[star]
+    else:
+        be = star
+
+    if path2 == None or path2 == '.':
+        path2 = _os.getcwd()
+
+#    if path2 == None or path2 == '.':
+#        path2 = _phc.trimpathname(logfile)[0]
+#        if path2=='':
+#            path2 = _os.getcwd()
+
+
+    try:
+        lines = _np.loadtxt(logfile, dtype=str)
+    except:
+        print('# ERROR: Can\'t read file {0}.'.format(logfile))
+        raise SystemExit(1)
+
+    if type(lines[0]) != _np.ndarray and _np.size(lines) == 18:
+        lines = lines.reshape(-1,18)
+
+    linesout=''
+
+    for i,line in enumerate(lines):
+
+        # read filter
+        f = line[3]
+
+        # Correction of IS polarization
+        QIS, UIS = serkowski(ispol[0], ispol[1], str(f), mode=1, pa=ispol[2])
+        Q = float(line[9]) - QIS
+        U = float(line[10]) - UIS
+        P = _np.sqrt(Q**2 + U**2)
+        th = _np.arctan(Q/U)*90/_np.pi
+#                        sigth = 28.65*sig/P
+
+        # Fix the angle to the correct in QU diagram
+        if Q < 0:
+            th += 90
+        elif Q >= 0 and U < 0:
+            th += 180
+
+        linesout += ('{:12s} {:>7s} {:>7s} {:>4s} {:>5s} {:>12s} {:>6.1f} {:>6.1f}'+
+                                ' {:>8.4f} {:>8.4f} {:>8.4f} {:>7.2f} {:>7.4f} '+
+                                '{:>6.2f} {:>13s} {:>4s} {:>5s} {:>s}\n').format(line[0], line[1], \
+                                line[2], line[3], line[4], line[5], float(line[6]), float(line[7]), \
+                                P, Q, U, th, float(line[12]), float(line[13]), line[14], line[15], \
+                                line[16], line[17])
+
+#        lines[i][8] = P
+#        lines[i][9] = Q
+#        lines[i][10] = U
+#        lines[i][11] = th
+
+    if linesout != '':
+        f0 = open('{0}/{1}_iscor.log'.format(path2,star),'w')
+        linesout = ('# ISP parameters used:\n#\n# Pmax (%)   lmax (A)     PA\n# {0:>8.4f}'+\
+                    ' {1:>9.2f} {2:>7.2f}\n#\n').format(ispol[0],ispol[1],ispol[2]) + \
+                   ('#{:>11s} {:>7s} {:>7s} {:>4s} {:>5s} {:>12s} {:>6s} {:>6s}' +\
+                        ' {:>8s} {:>8s} {:>8s} {:>7s} {:>7s} {:>6s} {:>13s}' +\
+                        ' {:>4s} {:>5s} {:>s}\n').format('MJD', 'night',\
+                        'ccd', 'filt', 'calc', 'stdstars', 'dth', 'sigdth', 'P', 'Q', 'U',\
+                        'th', 'sigP', 'sigth', 'outfile', 'star', 'flag', 'tags')+linesout
+
+        f0.writelines(linesout)
+        f0.close()
+
+        print('DONE! File written in {0}/{1}_iscor.log.'.format(path2,star))
+    else:
+        print('NOT DONE! No observation for target `{0}`.'.format(star))
+
+
+    return
+
+
+
+
+#################################################
+#################################################
+#################################################
 def serkowski(pmax, lmax, wlen, mode, pa=None, law='w82'):
     """
 
@@ -2991,7 +3089,7 @@ def splitData301(night, path_raw='raw', path_red='red'):
 #################################################
 #################################################
 #################################################
-def graf_t(logfile, vfilter=['no-std'], save=False, extens='pdf', filt='v'):
+def graf_t(logfile, path2=None, vfilter=['no-std'], save=False, extens='pdf', filt='v'):
     """
     Plot a P_V x t, theta_V x t and P_B/P_I x t graphs for the
     Be star in the logfile .log file (the outfile from
@@ -3229,11 +3327,15 @@ def graf_t(logfile, vfilter=['no-std'], save=False, extens='pdf', filt='v'):
    
 
     _plt.close('all')
-    if logfile.split('.')[0] in _phc.bes:
-        be = _phc.bes[logfile.split('.')[0]]
+    star = _phc.trimpathname(logfile)[1].split('.')[0].split('_')[0]
+    if star in _phc.bes:
+        be = _phc.bes[star]
     else:
-        be = logfile.split('.')[:-1]
+        be = star
     images = []
+
+    if path2 == None or path2 == '.':
+        path2 = _os.getcwd()
 
     # Verify if vfilter is a special filter
     if vfilter in vfil.keys():
@@ -3269,7 +3371,7 @@ def graf_t(logfile, vfilter=['no-std'], save=False, extens='pdf', filt='v'):
 #        cb.set_ticklabels(range(int(limJD[0]),int(limJD[1]),50))
 
     if save:
-        _plt.savefig('{0}_t.{1}'.format(logfile.split('.')[0],extens), bbox_inches='tight')
+        _plt.savefig('{0}/{1}_t.{2}'.format(path2,star,extens), bbox_inches='tight')
     else:
         _plt.show(block=False)
 
@@ -3281,10 +3383,10 @@ def graf_t(logfile, vfilter=['no-std'], save=False, extens='pdf', filt='v'):
 #################################################
 #################################################
 #################################################
-def graf_qu(logfile, mode=1, thetfile=None, isp=[], odr=True, mcmc=False, nn=[120, 200, 600], \
-                           thet_ran=[0., 180.], b_ran=[-1., 1.], Pb_ran=[0., 1.], \
-                           Yb_ran=[-1., 1.], Vb_ran=[0., 1.], clip=True, sclip=4.5, \
-                           nmax=5, vfilter=['no-std'], save=False, extens='pdf', limQ=None, limU=None, limJD=None):
+def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=False, \
+             nn=[120, 200, 600], thet_ran=[0., 180.], b_ran=[-1., 1.], Pb_ran=[0., 1.], \
+             Yb_ran=[-1., 1.], Vb_ran=[0., 1.], clip=True, sclip=4.5, nmax=5, \
+             vfilter=['no-std'], save=False, extens='pdf', limQ=None, limU=None, limJD=None):
     """
     Plot a QU diagram for the Be star in the logfile .log
     file (the outfile from polt.genTarget) and fit a line
@@ -3299,12 +3401,15 @@ def graf_qu(logfile, mode=1, thetfile=None, isp=[], odr=True, mcmc=False, nn=[12
     INPUT
 
         logfile: Logfile with QU data
+          path2: Path to save the output graphs
            mode: 1) Plot a figure to filter U and another for
                  BVRI filters; 2) Plot a figure for filter
         thetfile: thet_int.csv file (out from fs.genInt) to
                  to plot the lines using the values inside.
                  In this case, mcmc variable don`t matters in
                  the running.
+            isp: interstellar polarization to plot direction
+                 in QU diagram
             odr: Run phc.fit_linear to fit a line?
            mcmc: Run fitMCMCline to fit a line?
              nn: fitMCMCline: [n_walkers, n_burnin, n_mcmc]
@@ -3786,12 +3891,16 @@ def graf_qu(logfile, mode=1, thetfile=None, isp=[], odr=True, mcmc=False, nn=[12
 
 
     _plt.close('all')
-    star = _phc.trimpathname(logfile)[1].split('.')[0]
+    star = _phc.trimpathname(logfile)[1].split('.')[0].split('_')[0]
     if star in _phc.bes:
         be = _phc.bes[star]
     else:
         be = star
     arr, images = [],[]
+
+    if path2 == None or path2 == '.':
+        path2 = _os.getcwd()
+
 
     # Verify if vfilter is a special filter
     if vfilter in vfil.keys():
@@ -3810,7 +3919,7 @@ def graf_qu(logfile, mode=1, thetfile=None, isp=[], odr=True, mcmc=False, nn=[12
 #        _plt.close(fig_aux)
         
         if save:
-            fig.savefig('{0}_qu_u.{1}'.format(star,extens), bbox_inches='tight')
+            fig.savefig('{0}/{1}_qu_u.{2}'.format(path2,star,extens), bbox_inches='tight')
 #            _plt.close(fig)
         else:
             fig.show()
@@ -3868,7 +3977,7 @@ def graf_qu(logfile, mode=1, thetfile=None, isp=[], odr=True, mcmc=False, nn=[12
 #        cb.set_ticklabels(range(int(limjd[0]),int(limjd[1]),50))
 
         if save:
-            fig.savefig('{0}_qu.{1}'.format(star,extens), bbox_inches='tight')
+            fig.savefig('{0}/{1}_qu.{2}'.format(path2,star,extens), bbox_inches='tight')
 #            _plt.close(fig)
         else:
             fig.show()
@@ -3884,7 +3993,7 @@ def graf_qu(logfile, mode=1, thetfile=None, isp=[], odr=True, mcmc=False, nn=[12
 #            _plt.close(fig_aux)
 
             if save:
-                fig.savefig('{0}_qu_{1}.{2}'.format(star,filt,extens), bbox_inches='tight')
+                fig.savefig('{0}/{1}_qu_{2}.{3}'.format(path2,star,filt,extens), bbox_inches='tight')
 #                _plt.close(fig)
             else:
                 _plt.show()
