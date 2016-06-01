@@ -2492,7 +2492,9 @@ def serkowski(pmax, lmax, wlen, mode, pa=None, law='w82'):
     elif law=='serk':
         K = 1.15                # Serkowski
 
-    if mode==1 and wlen in _phc.lbds:
+    if pmax==0 and lmax==0:
+        P = 0.
+    elif mode==1 and wlen in _phc.lbds:
         P = pmax*_np.exp(-K*_np.log(lmax/_phc.lbds[wlen])**2)
     else:
         P = pmax*_np.exp(-K*_np.log(lmax/wlen)**2)
