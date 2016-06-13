@@ -11,11 +11,13 @@ History:
 :license: GNU GPL v3.0 (https://github.com/danmoser/pyhdust/blob/master/LICENSE)
 """
 
+from __future__ import print_function
+from sys import exit,stderr
 import os as _os
 import re as _re
 import pwd as _pwd
 import time as _time
-import glob as _glob
+from glob import glob as _glob
 import numpy as _np
 import datetime as _dt
 import shutil as _shutil
@@ -75,6 +77,15 @@ vfil = { 'comp' : ['no-std','iagpol-prob','oth-day-std'],
          'prob' : ['no-std','iagpol-prob','incomp-mods','obs-prob','other-prob','oth-day-std'],
          'full' : ['no-std','iagpol-prob','incomp-mods','obs-prob','other-prob','oth-day-std','bad-mod','very-bad-mod'],
        }
+
+
+
+#################################################
+#################################################
+#################################################
+def eprint(*args, **kwargs):
+    print(*args, file=stderr, **kwargs)
+
 
 
 #################################################
@@ -186,8 +197,8 @@ def readoutMJD(out, nstar=1):
     try:
         data = readout(out, nstar=nstar)
     except:
-        print('# ERROR: Can\'t open/read file {0}. Verify and run again.\n'.format(out))
-        raise SystemExit(1)
+        eprint('# ERROR: Can\'t open/read file {0}. Verify and run again.\n'.format(out))
+        exit(1)
         
     WP = False
     if '_WP' in outn:
@@ -206,9 +217,9 @@ def readoutMJD(out, nstar=1):
         datei = float(date[npos-1].split()[-1])-2400000.5
         datef = float(date[npos-1+seq-1].split()[-1])-2400000.5
     except:
-        print(('# ERROR: Found *_{0}_*.out files, but none JD file found as {1}/JD_*_{2}. '+\
+        eprint(('# ERROR: Found *_{0}_*.out files, but none JD file found as {1}/JD_*_{2}. '+\
                             'Verify and run again.\n').format(f,path,f))
-        raise SystemExit(1)
+        exit(1)
 
     if WP:
         ver = outn[-1]
@@ -222,9 +233,9 @@ def readoutMJD(out, nstar=1):
         if len(coords) == 0:
             coords = _glob('{0}/coord_*_{1}_[0-9]*.ord'.format(path,f))
             if len(coords) == 0:
-                print(('# ERROR: Found *_{0}_*.out files, but none COORD file found as '+\
+                eprint(('# ERROR: Found *_{0}_*.out files, but none COORD file found as '+\
                         '{1}/coord_*_{2}_*.ord. Verify and run again.\n').format(f,path,f))
-                raise SystemExit(1)
+                exit(1)
 
     try:
         if ccd not in ('301','654'):
@@ -236,8 +247,8 @@ def readoutMJD(out, nstar=1):
         while ang < 0:
             ang += 180.
     except:
-        print('# ERROR: Can\'t open coords file {0}/coord_*_{1}_*.ord. Verify and run again.\n'.format(path,f))
-        raise SystemExit(1)
+        eprint('# ERROR: Can\'t open coords file {0}/coord_*_{1}_*.ord. Verify and run again.\n'.format(path,f))
+        exit(1)
 
     if date != -1:
         if datei == datef:
@@ -312,9 +323,9 @@ def chooseout(objdir, obj, f, nstar=1, sigtol=lambda sig: 1.4*sig):
 
     # Check reduction
     if len(louts) == 0 and npos != 0:
-        print(('# ERROR: There are observations not reduced for {0}/{1}_{2}_*.fits. ' +\
+        eprint(('# ERROR: There are observations not reduced for {0}/{1}_{2}_*.fits. ' +\
                             'Verify and run again.\n').format(objdir,obj,f))
-        raise SystemExit(1)
+        exit(1)
 
     # Calculate the number of outfiles to be returned.
     n=npos/16   # operacao em formato int!
@@ -493,8 +504,8 @@ def queryout(objdir, obj, f, nstar=1, sigtol=lambda sig: 1.4*sig):
                 z = verStdPol(obj, f, float(P)*100, float(sig*100))
                 numout = '(#{0})'.format(sortout.index(outs[i]))
             except:
-                print('# ERROR: It shouldn\'t enter here in queryout!\n')
-                raise SystemExit(1)
+                eprint('# ERROR: It shouldn\'t enter here in queryout!\n')
+                exit(1)
 
             # Reassigns ztest value for printing
             if z == -1:
@@ -709,7 +720,7 @@ def grafall(objdir, filt, nstar=1, n=1, bestouts=[], shortmode=False):
         if len(logs) > 0:
             direc = _phc.trimpathname(logs[0])[0]
         else:
-            print("ERROR: no log files found to plot.")
+            eprint("ERROR: no log files found to plot.")
             return
         for log in [_phc.trimpathname(li)[1] for li in logs]:
             if log.find('_WP') == -1:
@@ -855,10 +866,10 @@ def grafall(objdir, filt, nstar=1, n=1, bestouts=[], shortmode=False):
                 if len(logs)%2 != 0:
                     ncol += 1
         else:
-            print('# ERROR: align mode {0} is not valid in grafall! Graphs not displayed!'.format(align))
+            eprint('# ERROR: align mode {0} is not valid in grafall! Graphs not displayed!'.format(align))
             return            
         if ncol > 4:
-            print('# ERROR: {0} figure(s) was(were) not displayed by grafall'.format(len(logs)-8))
+            eprint('# ERROR: {0} figure(s) was(were) not displayed by grafall'.format(len(logs)-8))
             return
 
         if   ncol == 1: linit=0.15
@@ -990,7 +1001,7 @@ def grafall(objdir, filt, nstar=1, n=1, bestouts=[], shortmode=False):
 
     logs = _glob('{0}/*_{1}_*.log'.format(objdir, filt))
     if logs == []:
-        print('# ERROR: log files not found to plot. May the file names \
+        eprint('# ERROR: log files not found to plot. May the file names \
               {0}/*_{1}_*.log are wrong!'.format(objdir, filt))
         return 1
     gps, sublogs, ver = combineout(logs, n)
@@ -1089,8 +1100,8 @@ def grafpol(filename, nstar=1, fig=None, ax1=None, ax2=None, save=False, extens=
             # CAUTION! BLANK LINES WILL BE SKIPPED!
             file0 = _np.loadtxt(filename, dtype=str, delimiter='\n', comments=None)
         except:
-            print('# ERROR: File {0} not found!\n'.format(filename))
-            raise SystemExit(1)
+            eprint('# ERROR: File {0} not found!\n'.format(filename))
+            exit(1)
 
         [lixo,lixo,lixo,lixo,lixo,lixo,lixo,lixo,MJD,lixo] = \
                 readoutMJD(filename.replace('.log','.out'), nstar=nstar)
@@ -1107,9 +1118,9 @@ def grafpol(filename, nstar=1, fig=None, ax1=None, ax2=None, save=False, extens=
         isinstar=False
 
         if nstars < nstar:
-            print('# ERROR: File {0} has {1} stars (you have selected star #{2}).'.\
+            eprint('# ERROR: File {0} has {1} stars (you have selected star #{2}).'.\
                                                         format(filename, nstars, nstar))
-            raise SystemExit(1)
+            exit(1)
             
         # Bednarski: corrected (25 -> 19, because the blank lines had been ignorated by
         #            np.loadtext function)
@@ -1386,7 +1397,7 @@ def chkStdLog(f, calc, path=None, delta=3.5, verbose=True):
                 writeLog(path, '# ERROR: polt.chkStdLog() not runned! Incompatible number '+ \
                                                             'of columns in `std.dat`.\n')
             else:
-                print('# ERROR: Incompatible number of columns in `std.dat`.\n')
+                eprint('# ERROR: Incompatible number of columns in `std.dat`.\n')
 
     foundstd = False
     for stdi in std:
@@ -1464,7 +1475,7 @@ def genLog(path, subdirs, tgts, fileout, sigtol=lambda sigm: 1.4*sigm, \
 #        return 1
 
     if len(tgts) != len(subdirs):
-        print('\n# ERROR: polt.genLog() NOT RUNNED for {0} (len(tgts) != len(subdirs))'.format(typ))
+        eprint('\n# ERROR: polt.genLog() NOT RUNNED for {0} (len(tgts) != len(subdirs))'.format(typ))
         writeLog(path, '# ERROR: polt.genLog() NOT RUNNED for {0}! (len(tgts) != len(subdirs))\n'.format(typ))
         return 1
 
@@ -1519,21 +1530,21 @@ def genLog(path, subdirs, tgts, fileout, sigtol=lambda sigm: 1.4*sigm, \
             # Check if there exist fits files for object/filter, but not .out files (target not reduced)
             if nstars == 0 and (len(_glob('{0}/{1}/*_{2}_*.fits'.format(path,objdir,f))) > 0 \
                             or len(_glob('{0}/{1}/{2}/p??0'.format(path,objdir,f))) > 0):
-                print(('\n# ERROR: {0}_{1}: Fits files found, but the object was not reduced! ' +\
+                eprint(('\n# ERROR: {0}_{1}: Fits files found, but the object was not reduced! ' +\
                         'Reduce and run again...\n\n - HINT: if these fits files compose some ' +\
                         'non-valid serie but need be kept in, move them for a subdir {2}/tmp, ' +\
                         'and hence, the path will not be sweept by routine.\n').format(objdir,f,objdir))
-                raise SystemExit(1)
+                exit(1)
             # Check if there exist some .out file for such object/filter, but not the fits files
             elif nstars != 0 and (len(_glob('{0}/{1}/*_{2}_*.fits'.format(path,objdir,f))) == 0 \
                                     and len(_glob('{0}/{1}/{2}/p??0'.format(path,objdir,f))) == 0):
-                print(('\n# ERROR: {0}_{1}: Fits files not found, but were found *_{2}_* files. ' +\
+                eprint(('\n# ERROR: {0}_{1}: Fits files not found, but were found *_{2}_* files. ' +\
                         'It can be by three reasons:\n'+\
                         '  1) Fits files missing (in this case, search by them and add in such directory);\n' +\
                         '  2) The found *_{3}_* files can be \'spurious files\' (in this case, delete them);\n' +\
                         '  3) The preffix of *_{4}_*.fits files can be different of the rest of *_{5}_* ' +\
                         'files (in this case, rename them).\n').format(objdir,f,f,f,f,f))
-                raise SystemExit(1)
+                exit(1)
 
             # Working for more than a single star inside .out files
             for nstar in range(1,nstars+1):
@@ -1679,8 +1690,8 @@ def genAllLog(path=None, sigtol=lambda sigm: 1.4*sigm, autochoose=False, delta=3
         lstds = _np.loadtxt('{0}/refs/pol_padroes.txt'.format(_hdtpath()), \
                                                            dtype=str, usecols=[0])
     except:
-        print('# ERROR: Can\'t read files pyhdust/refs/pol_alvos.txt and/or pyhdust/refs/pol_padroes.txt.\n')
-        raise SystemExit(1)
+        eprint('# ERROR: Can\'t read files pyhdust/refs/pol_alvos.txt and/or pyhdust/refs/pol_padroes.txt.\n')
+        exit(1)
 
     subdirs = [fld for fld in _os.listdir('{0}'.format(path)) if \
             _os.path.isdir(_os.path.join('{0}'.format(path), fld))]
@@ -1789,8 +1800,8 @@ def corObjStd(night, f, calc, path=None, delta=3.5, verbose=True):
         try:
             dthref = _np.loadtxt('{0}/refs/dths.txt'.format(_hdtpath()), dtype=str)
         except:
-            print('# ERROR: Can\'t read files pyhdust/refs/dths.txt')
-            raise SystemExit(1)
+            eprint('# ERROR: Can\'t read files pyhdust/refs/dths.txt')
+            exit(1)
 
         # Try to use the standard star observation at filter f
         stdnames, dth, sdth, flag, tags = readFilter(f)
@@ -1906,8 +1917,8 @@ def corObjStd(night, f, calc, path=None, delta=3.5, verbose=True):
         try:
             stdref = _np.loadtxt('{0}/refs/pol_padroes.txt'.format(_hdtpath()), dtype=str, usecols=range(0,22))
         except:
-            print('# ERROR: Can\'t read files pyhdust/refs/pol_padroes.txt')
-            raise SystemExit(1)
+            eprint('# ERROR: Can\'t read files pyhdust/refs/pol_padroes.txt')
+            exit(1)
 
         dth = []
         sdth = []
@@ -2095,8 +2106,8 @@ def genTarget(target, path=None, path2=None, ispol=None, skipdth=False, delta=3.
             obj = _np.concatenate((obj,_np.loadtxt('{0}/refs/pol_unpol.txt'.format(_hdtpath()), dtype=str)))
         std = _np.loadtxt('{0}/refs/pol_padroes.txt'.format(_hdtpath()), dtype=str, usecols=range(0,22))
     except:
-        print('# ERROR: Can\'t read files pyhdust/refs/pol_alvos.txt and/or pyhdust/refs/pol_padroes.txt.')
-        raise SystemExit(1)
+        eprint('# ERROR: Can\'t read files pyhdust/refs/pol_alvos.txt and/or pyhdust/refs/pol_padroes.txt.')
+        exit(1)
 
     if target in std[:,0]:
         ftype='std'
@@ -2104,7 +2115,7 @@ def genTarget(target, path=None, path2=None, ispol=None, skipdth=False, delta=3.
         ftype='obj'
 
     if target not in _np.hstack((std[:,0],obj)) and 'field' not in target:
-        print('\nWARNING: Target {0} is not a default target or standard!'.\
+        eprint('\nWARNING: Target {0} is not a default target or standard!'.\
         format(target))
 
     print('\n'+'='*30+'\n')
@@ -2119,14 +2130,14 @@ def genTarget(target, path=None, path2=None, ispol=None, skipdth=False, delta=3.
             try:
                 objs = _np.loadtxt('{0}/{1}/{2}.dat'.format(path,night,ftype), dtype=str)
             except:
-                print('{0:<12s} ERROR! Can\'t read {1}.dat file. Ignoring this night...\n'.format(night+':',ftype))
+                eprint('{0:<12s} ERROR! Can\'t read {1}.dat file. Ignoring this night...\n'.format(night+':',ftype))
                 continue
 
             # Verify if std has more than one line. Case not, do the reshape
             if _np.size(objs) == 9:
                 objs = objs.reshape(-1,9)
             elif _np.size(objs) % 9 != 0:
-                print('{0:<12s} ERROR! Wrong column type in {1}.dat file. Ignoring this night...\n'.format(night+':',ftype))
+                eprint('{0:<12s} ERROR! Wrong column type in {1}.dat file. Ignoring this night...\n'.format(night+':',ftype))
                 continue
 
             valc = True
@@ -2147,7 +2158,7 @@ def genTarget(target, path=None, path2=None, ispol=None, skipdth=False, delta=3.
                         Q, U, sig, P, th, sigT, tmp, tmp2 = readout('{0}/{1}'.\
                                                     format(path+'/'+night,out), nstar=int(nstar))
                     except:
-                        print('{0:<12s} ERROR! Can\'t open/read out file {1}. Ignoring this data...\n'.format(night+', '+f+':',out))
+                        eprint('{0:<12s} ERROR! Can\'t open/read out file {1}. Ignoring this data...\n'.format(night+', '+f+':',out))
                         continue
 
                     P = float(P)*100
@@ -2346,7 +2357,7 @@ def genTarget(target, path=None, path2=None, ispol=None, skipdth=False, delta=3.
         else:
             print('DONE! {0} lines written in {1}/{2}_iscor.log.'.format(nlines,path2,target))
     else:
-        print('NOT DONE! No valid observation was found for target `{0}`.'.format(target))
+        eprint('NOT DONE! No valid observation was found for target `{0}`.'.format(target))
       
     return
 
@@ -2389,8 +2400,8 @@ def fixISP(logfile, ispol, path2=None):
     try:
         lines = _np.loadtxt(logfile, dtype=str)
     except:
-        print('# ERROR: Can\'t read file {0}.'.format(logfile))
-        raise SystemExit(1)
+        eprint('# ERROR: Can\'t read file {0}.'.format(logfile))
+        exit(1)
 
     if type(lines[0]) != _np.ndarray and _np.size(lines) == 18:
         lines = lines.reshape(-1,18)
@@ -2443,7 +2454,7 @@ def fixISP(logfile, ispol, path2=None):
 
         print('DONE! File written in {0}/{1}_iscor.log.'.format(path2,star))
     else:
-        print('NOT DONE! No observation for target `{0}`.'.format(star))
+        eprint('NOT DONE! No observation for target `{0}`.'.format(star))
 
 
     return
@@ -2513,10 +2524,6 @@ def serkowski(pmax, lmax, wlen, mode, pa=None, law='w82'):
 
 
 #################################################
-#################################################
-#################################################
-### IMPLEMENTAR CORLOWPOL QUE SERÁ A CORREÇÃO
-### DAS INCERTEZAS PARA POLARIZAÇÕES BAIXAS
 def propQU(p, th, sp, sdth, estim='wk'):
     """
     Propagate the delta theta error over the polarization
@@ -2562,8 +2569,8 @@ def propQU(p, th, sp, sdth, estim='wk'):
     elif estim=='':
         k=0.
     elif estim!='mts':
-        print('# ERROR: estimation type `{0}` not valid!.'.format(estim))
-        raise SystemExit(1)
+        eprint('# ERROR: estimation type `{0}` not valid!.'.format(estim))
+        exit(1)
 
     sth,sq,su = [],[],[]
     sth0=0
@@ -2637,8 +2644,8 @@ def genJD(path=None):
                     tobs = float(tobs[0])*3600+float(tobs[1])*60+float(tobs[2])
                     tobs /= (24*3600)
                 else:
-                    print('# ERROR! Wrong DATE-OBS in header! {0}'.format(fits))
-                    raise systemExit(1)
+                    eprint('# ERROR! Wrong DATE-OBS in header! {0}'.format(fits))
+                    exit(1)
                 JD = _np.sum(_jdcal.gcal2jd(*dtobs))+tobs
                 JDout += 'WP {0}  {1:.7f}\n'.format(i,JD)
             f0 = open('JD_{0}'.format(pref),'w')
@@ -2698,7 +2705,7 @@ def plotMagStar(tgt, path=None):
     lmags = _np.loadtxt('{0}/refs/pol_mags.txt'.format(_hdtpath()), dtype=str)
 
     if tgt not in lmags[:,0]:
-        print('# ERROR! {0} is not a valid mag. star!'.format(tgt))
+        eprint('# ERROR! {0} is not a valid mag. star!'.format(tgt))
         return
 
     data = _np.loadtxt('{0}/{1}.log'.format(path,tgt), dtype=str)
@@ -2857,10 +2864,10 @@ def splitData(night, path_raw='raw', path_red='red'):
     print('')
     
     if not _os.path.exists(path_raw) or not _os.path.exists(path_red):
-        print('Error: Directory \'{0}\' and/or \'{1}\' doesn\'t exist!\n'.format(path_raw, path_red))
+        eprint('Error: Directory \'{0}\' and/or \'{1}\' doesn\'t exist!\n'.format(path_raw, path_red))
         return 1
     elif not _os.path.exists(night):
-        print('Error: Directory \'{0}\' doesn\'t exist!\n'.format(night))
+        eprint('Error: Directory \'{0}\' doesn\'t exist!\n'.format(night))
         return 1
 
     if night[len(night)-1] == '/':
@@ -2888,18 +2895,18 @@ def splitData(night, path_raw='raw', path_red='red'):
                     try:
                         _shutil.rmtree('{0}/{1}'.format(path_raw, night))
                     except:
-                        print('ERROR when deleting directory \'{0}/{1}\'. Check the permissions.\n'.format(path_raw, night))
+                        eprint('ERROR when deleting directory \'{0}/{1}\'. Check the permissions.\n'.format(path_raw, night))
                         return 2
 
                 if _os.path.exists('{0}/{1}'.format(path_red, night)):
                     try:
                         _shutil.rmtree('{0}/{1}'.format(path_red, night))
                     except:
-                        print('ERROR when deleting directory \'{0}/{1}\'. Check the permissions.\n'.format(path_red, night))
+                        eprint('ERROR when deleting directory \'{0}/{1}\'. Check the permissions.\n'.format(path_red, night))
                         return 2
                 break
             elif verif in ['n', 'N']:
-                print('Aborted!\n')
+                eprint('Aborted!\n')
                 return 1
             else:
                print('Value not valid!\n')
@@ -2921,7 +2928,7 @@ def splitData(night, path_raw='raw', path_red='red'):
                 try:
                     _os.makedirs(_phc.trimpathname(file_new)[0])
                 except:
-                    print('ERROR when copying files. Check the permissions to directories' + \
+                    eprint('ERROR when copying files. Check the permissions to directories' + \
                                 ' \'{0}\' and \'{1}\'\n'.format(path_raw, path_red))
                     return 2
 
@@ -2951,10 +2958,10 @@ def splitData301(night, path_raw='raw', path_red='red'):
 
     # Verify if raw and red directories exist
     if not _os.path.exists(path_raw) or not _os.path.exists(path_red):
-        print('Error: Directory \'{0}\' and/or \'{1}\' doesn\'t exist!\n'.format(path_raw, path_red))
+        eprint('Error: Directory \'{0}\' and/or \'{1}\' doesn\'t exist!\n'.format(path_raw, path_red))
         return 1
     elif not _os.path.exists(night):
-        print('Error: Directory \'{0}\' doesn\'t exist!\n'.format(night))
+        eprint('Error: Directory \'{0}\' doesn\'t exist!\n'.format(night))
         return 1
 
     if night[len(night)-1] == '/':
@@ -2979,18 +2986,18 @@ def splitData301(night, path_raw='raw', path_red='red'):
                     try:
                         _shutil.rmtree('{0}/{1}'.format(path_raw, night))
                     except:
-                        print('ERROR when deleting directory \'{0}/{1}\'. Check the permissions.\n'.format(path_raw, night))
+                        eprint('ERROR when deleting directory \'{0}/{1}\'. Check the permissions.\n'.format(path_raw, night))
                         return 2
 
                 if _os.path.exists('{0}/{1}'.format(path_red, night)):
                     try:
                         _shutil.rmtree('{0}/{1}'.format(path_red, night))
                     except:
-                        print('ERROR when deleting directory \'{0}/{1}\'. Check the permissions.\n'.format(path_red, night))
+                        eprint('ERROR when deleting directory \'{0}/{1}\'. Check the permissions.\n'.format(path_red, night))
                         return 2
                 break
             elif verif in ['n', 'N']:
-                print('Aborted!\n')
+                eprint('Aborted!\n')
                 return 1
             else:
                print('Value not valid!\n')
@@ -3034,7 +3041,7 @@ def splitData301(night, path_raw='raw', path_red='red'):
                 if _re.search(r'^sum', f):
 #                    print f
                     if filt == '':
-                        print(('\nERROR: No filter was identified for file {0}.\nPut this files ' +\
+                        eprint(('\nERROR: No filter was identified for file {0}.\nPut this files ' +\
                         ' inside a subdir named with the filter name and run again!').format(file_old))
                         return 3
                     file_new = path_red + '/' + night + '/' + obj + '/sum_' + obj + '_' +\
@@ -3042,7 +3049,7 @@ def splitData301(night, path_raw='raw', path_red='red'):
                 # Case w*.dat, w*.log, w*.out files
                 elif _re.search(r'\.dat|\.log|\.out$', f):
                     if filt == '':
-                        print(('# ERROR: No filter was identified for file {0}.\nPut this files ' +\
+                        eprint(('# ERROR: No filter was identified for file {0}.\nPut this files ' +\
                         ' inside a subdir named with the filter letter and run again!').format(file_old))
                         return 3
                     file_new = path_red + '/' + night + '/' + obj + '/w' + obj + '_' +\
@@ -3050,7 +3057,7 @@ def splitData301(night, path_raw='raw', path_red='red'):
                 # Case coord.*.ord files
                 elif _re.search(r'^coord', f):
                     if filt == '':
-                        print(('# ERROR: No filter was identified for file {0}.\nPut this files ' +\
+                        eprint(('# ERROR: No filter was identified for file {0}.\nPut this files ' +\
                         ' inside a subdir named with the filter letter and run again!').format(file_old))
                         return 3
                     file_new = path_red + '/' + night + '/' + obj + '/coord_' + obj + '_' +\
@@ -3066,7 +3073,7 @@ def splitData301(night, path_raw='raw', path_red='red'):
                 try:
                     _os.makedirs(_phc.trimpathname(file_new)[0])
                 except:
-                    print('ERROR when copying files. Check the permissions to directories' + \
+                    eprint('ERROR when copying files. Check the permissions to directories' + \
                                 ' \'{0}\' and \'{1}\'\n'.format(path_raw, path_red))
                     return 2
 
@@ -3147,8 +3154,8 @@ def graf_t(logfile, path2=None, vfilter=['no-std'], save=False, extens='pdf', fi
         try:
             lines = _np.loadtxt(logfile, dtype=str)
         except:
-            print('# ERROR: Can\'t read file {0}.'.format(logfile))
-            raise SystemExit(1)
+            eprint('# ERROR: Can\'t read file {0}.'.format(logfile))
+            exit(1)
 
         if type(lines[0]) != _np.ndarray and _np.size(lines) == 18:
             lines = lines.reshape(-1,18)
@@ -3373,7 +3380,7 @@ def graf_t(logfile, path2=None, vfilter=['no-std'], save=False, extens='pdf', fi
 #        cb.set_ticklabels(range(int(limJD[0]),int(limJD[1]),50))
 
     if save:
-        _plt.savefig('{0}/{1}_t.{2}'.format(path2,star,extens), bbox_inches='tight')
+        _plt.savefig('{0}/{1}_t_{2}.{3}'.format(path2,star,filt,extens), bbox_inches='tight')
     else:
         _plt.show(block=False)
 
@@ -3493,8 +3500,8 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
         try:
             lines = _np.loadtxt(logfile, dtype=str)
         except:
-            print('# ERROR: Can\'t read file {0}.'.format(logfile))
-            raise SystemExit(1)
+            eprint('# ERROR: Can\'t read file {0}.'.format(logfile))
+            exit(1)
 
 #        ax.set_title('{0} filter'.format(filt.upper()), fontsize=fonts[0]*factor, verticalalignment='bottom')
         ax.text(0.98, 0.9, '{0} filter'.format(filt.upper()), horizontalalignment='right', \
@@ -3541,10 +3548,10 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
 
             # Fitting and plotting by least squares (must be found at least 2 points)
             if odr_fit and len(q) > 1:
-                print '='*60
-                print '='*6 + '  FILTER ' + filt.upper()
-                print '='*60
-                print ''
+                print('='*60)
+                print('='*6 + '  FILTER ' + filt.upper())
+                print('='*60)
+                print('')
                 tht, stht, param, sparam1, num = fitodr(q,u,sq,su,JD,q_filt,u_filt,sq_filt,su_filt,JD_filt,filt)
                 sparam2 = sparam1
                 delt = (max(q+q_filt)-min(q+q_filt))/8
@@ -3584,10 +3591,10 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
                     
                 else:
                     if not odr_fit or len(q) <= 1:
-                        print '='*60
-                        print '='*6 + '  FILTER ' + filt.upper()
-                        print '='*60
-                        print ''
+                        print('='*60)
+                        print('='*6 + '  FILTER ' + filt.upper())
+                        print('='*60)
+                        print('')
                     param, sparam1, sparam2 = fitmcmc(q+q_filt,u+u_filt,sq+sq_filt,su+su_filt,filt)
 
                 num=len(q+q_filt)
@@ -3761,16 +3768,16 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
         # Print informations only if mcmc==False (to prevent to print twice)
         if not mcmc:
             print(55*'-')
-            print '  Total least squares fit  (y = a*x+b):'
+            print('  Total least squares fit  (y = a*x+b):')
             print(55*'-')
-            print '             a = {0:.3f} +- {1:.3f}'.format(param[0], sparam[0])
-            print '             b = {0:.3f} +- {1:.3f}'.format(param[1], sparam[1])
-            print '         theta = {0:.2f} +- {1:.2f} (+- n*90)'.format(tht, stht)
-            print '             N = {0:d}'.format(len(pts[0]))
-            print ''
-            print '             red chi^2 = {0:2f}'.format(rchi2)
+            print('             a = {0:.3f} +- {1:.3f}'.format(param[0], sparam[0]))
+            print('             b = {0:.3f} +- {1:.3f}'.format(param[1], sparam[1]))
+            print('         theta = {0:.2f} +- {1:.2f} (+- n*90)'.format(tht, stht))
+            print('             N = {0:d}'.format(len(pts[0])))
+            print('')
+            print('             red chi^2 = {0:2f}'.format(rchi2))
             print(55*'-')
-            print ''
+            print('')
             
         return tht, stht, param, sparam, len(pts[0])
 
@@ -3868,8 +3875,8 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
         try:
             lines = _np.loadtxt(logfile, dtype=str)
         except:
-            print('# ERROR: Can\'t read file {0}.'.format(logfile))
-            raise SystemExit(1)
+            eprint('# ERROR: Can\'t read file {0}.'.format(logfile))
+            exit(1)
 
         if type(lines[0]) != _np.ndarray and _np.size(lines) == 18:
             lines = lines.reshape(-1,18)
@@ -4069,11 +4076,11 @@ def sintLeff(ccdn='ixon', step=5., save=True, extens='pdf'):
     try:
         fqe = _np.loadtxt('{0}/refs/QE_{1}.dat'.format(_hdtpath(),ccdn),skiprows=1, dtype=float, unpack=True) # unpack is to get the transposed array
     except:
-        print('ERROR: CCD name \'{0}\' not identified!'.format(ccdn))
+        eprint('ERROR: CCD name \'{0}\' not identified!'.format(ccdn))
         return
 
     if step not in range(5, 505, 5):
-        print('ERROR: step value not valid! Put some value among 5, 10, 15, ..., 500')
+        eprint('ERROR: step value not valid! Put some value among 5, 10, 15, ..., 500')
         return        
 
     # Interpolate QE
@@ -4138,7 +4145,7 @@ def sintLeff(ccdn='ixon', step=5., save=True, extens='pdf'):
             leff = l_on/l_under
 
             line = '{0:5s} {1:>6s} {2:>7.3f} {3:>7.3f} {4:>10.3f}'.format(filt,stype,ub,bv,leff)
-            print line
+            print(line)
             with open('leff_stars_{0}.dat'.format(ccdn), 'a') as f0:
                 f0.write(line+'\n')
 
@@ -4171,7 +4178,7 @@ def sintLeff(ccdn='ixon', step=5., save=True, extens='pdf'):
 
 
     # Once concluded, we need compute lambda_eff as function of u-b and b-v
-    print '\n\n\n# GENERAL ADJUST\n'
+    print('\n\n\n# GENERAL FITTING\n')
     leffs = _np.loadtxt('leff_stars_{0}.dat'.format(ccdn), dtype=str, unpack=True)
     for filt in filters:
         
@@ -4216,7 +4223,7 @@ def sintLeff(ccdn='ixon', step=5., save=True, extens='pdf'):
         line = ('{0:5s} {1:>8s} {2:>10.2f} {3:>8.2f} {4:>8.2f} {5:>7.2f} {6:>7.2f} {7:>7.2f}' +\
                 '{8:>7.2f} {9:>7.2f}').format(filt,colorstr,param[0],param[1],param[2],param[3],\
                          sparam[0],sparam[1],sparam[2],sparam[3])
-        print line
+        print(line)
         with open('leff_{0}.dat'.format(ccdn), 'a') as f0:
             f0.write(line+'\n')
 
@@ -4286,8 +4293,8 @@ def lbds(color, filt, ccdn, airmass=1.3, skiperror=False):
         if skiperror:
             leff = _phc.lbds[filt]
         else:
-            print('# ERROR: parameters to calculate lambda_eff in filter {0} and CCD {1} not found.'.format(filt,ccdn))
-            raise SystemExit(1)
+            eprint('# ERROR: parameters to calculate lambda_eff in filter {0} and CCD {1} not found.'.format(filt,ccdn))
+            exit(1)
     else:
         color = color + redn
         leff = l0 + k1*color + k2*(color**2) + k3*(color**3)
@@ -4507,16 +4514,16 @@ def fitMCMCline(x, y, sx, sy, star='', margin=False, plot_adj=True, fig=None, ax
         p0 is the initial positions for the walkers
         """
 
-        print "Burning-in ..."
+        print("Burning-in ...")
         pos, prob, state = sampler.run_mcmc(p0, n_burnin)
         sampler.reset()
 
-        print "Running MCMC ..."
+        print("Running MCMC ...")
         pos, prob, state = sampler.run_mcmc(pos, n_mcmc, rstate0=state)
 
         #~ Print out the mean acceptance fraction. 
         af = sampler.acceptance_fraction
-        print "Mean acceptance fraction:", _np.mean(af)
+        print("Mean acceptance fraction:", _np.mean(af))
 
         # Compute the results using all interval
         fig1, thet_mcmc, b_mcmc, Pb_mcmc, Yb_mcmc, Vb_mcmc = gen_results(sampler, intervalos, save=True, show=True)
@@ -4574,7 +4581,7 @@ def fitMCMCline(x, y, sx, sy, star='', margin=False, plot_adj=True, fig=None, ax
 
                     opt = raw_input('(y/n): ' )
                 if opt in ('y','Y'):
-                    print ''
+                    print('')
                     break
 
             _plt.close(fig1)
@@ -4642,18 +4649,18 @@ def fitMCMCline(x, y, sx, sy, star='', margin=False, plot_adj=True, fig=None, ax
 
         #~ Print the output
         """ TBD """
-        print ''
+        print('')
         print(55*'-')
-        print '  2) MCMC best values  (y = tan(theta)*x + b*cos(theta)):'
+        print('  2) MCMC best values  (y = tan(theta)*x + b*cos(theta)):')
         print(55*'-')
-        print '          theta = {0:9.4f}  +{1:.4f}  -{2:.4f}'.format(thet_mcmc[0],thet_mcmc[1],thet_mcmc[2])
-        print '   b*cos(theta) = {0:9.4f}  +{1:.4f}  -{2:.4f}'.format(b_mcmc[0],b_mcmc[1],b_mcmc[2])
-        print '             Pb = {0:9.4f}  +{1:.4f}  -{2:.4f}'.format(Pb_mcmc[0],Pb_mcmc[1],Pb_mcmc[2])
-        print '             Yb = {0:9.4f}  +{1:.4f}  -{2:.4f}'.format(Yb_mcmc[0],Yb_mcmc[1],Yb_mcmc[2])
-        print '             Vb = {0:9.4f}  +{1:.4f}  -{2:.4f}'.format(Vb_mcmc[0],Vb_mcmc[1],Vb_mcmc[2])
+        print('          theta = {0:9.4f}  +{1:.4f}  -{2:.4f}'.format(thet_mcmc[0],thet_mcmc[1],thet_mcmc[2]))
+        print('   b*cos(theta) = {0:9.4f}  +{1:.4f}  -{2:.4f}'.format(b_mcmc[0],b_mcmc[1],b_mcmc[2]))
+        print('             Pb = {0:9.4f}  +{1:.4f}  -{2:.4f}'.format(Pb_mcmc[0],Pb_mcmc[1],Pb_mcmc[2]))
+        print('             Yb = {0:9.4f}  +{1:.4f}  -{2:.4f}'.format(Yb_mcmc[0],Yb_mcmc[1],Yb_mcmc[2]))
+        print('             Vb = {0:9.4f}  +{1:.4f}  -{2:.4f}'.format(Vb_mcmc[0],Vb_mcmc[1],Vb_mcmc[2]))
 #        print 'reduced chi2 = {0:.4f}'.format(chi)
         print(55*'-')
-        print ''
+        print('')
 
 
         return fig1, thet_mcmc, b_mcmc, Pb_mcmc, Yb_mcmc, Vb_mcmc
@@ -4713,16 +4720,16 @@ def fitMCMCline(x, y, sx, sy, star='', margin=False, plot_adj=True, fig=None, ax
 
         # Print informations
         print(55*'-')
-        print '  1) Total least squares fit  (y = a*x+b):'
+        print('  1) Total least squares fit  (y = a*x+b):')
         print(55*'-')
-        print '             a = {0:.3f} +- {1:.3f}'.format(param[0], sparam[0])
-        print '             b = {0:.3f} +- {1:.3f}'.format(param[1], sparam[1])
-        print '         theta = {0:.2f} +- {1:.2f}'.format(tht, stht)
-        print '             N = {0:d}'.format(nn)
-        print ''
-        print '             red chi^2 = {0:2f}'.format(rchi2)
+        print('             a = {0:.3f} +- {1:.3f}'.format(param[0], sparam[0]))
+        print('             b = {0:.3f} +- {1:.3f}'.format(param[1], sparam[1]))
+        print('         theta = {0:.2f} +- {1:.2f}'.format(tht, stht))
+        print('             N = {0:d}'.format(nn))
+        print('')
+        print('             red chi^2 = {0:2f}'.format(rchi2))
         print(55*'-')
-        print ''
+        print('')
 
         return param, sparam
 
