@@ -2115,7 +2115,7 @@ def genTarget(target, path=None, path2=None, ispol=None, skipdth=False, delta=3.
         ftype='obj'
 
     if target not in _np.hstack((std[:,0],obj)) and 'field' not in target:
-        eprint('\nWARNING: Target {0} is not a default target or standard!'.\
+        print('\nWARNING: Target {0} is not a default target or standard!'.\
         format(target))
 
     print('\n'+'='*30+'\n')
@@ -2130,7 +2130,7 @@ def genTarget(target, path=None, path2=None, ispol=None, skipdth=False, delta=3.
             try:
                 objs = _np.loadtxt('{0}/{1}/{2}.dat'.format(path,night,ftype), dtype=str)
             except:
-                eprint('{0:<12s} ERROR! Can\'t read {1}.dat file. Ignoring this night...\n'.format(night+':',ftype))
+                eprint('{0:<12s} WARNING! Can\'t read {1}.dat file. Ignoring this night...\n'.format(night+':',ftype))
                 continue
 
             # Verify if std has more than one line. Case not, do the reshape
@@ -2138,7 +2138,7 @@ def genTarget(target, path=None, path2=None, ispol=None, skipdth=False, delta=3.
                 objs = objs.reshape(-1,9)
             elif _np.size(objs) % 9 != 0:
                 eprint('{0:<12s} ERROR! Wrong column type in {1}.dat file. Ignoring this night...\n'.format(night+':',ftype))
-                continue
+                exit(1)
 
             valc = True
             
@@ -2159,7 +2159,7 @@ def genTarget(target, path=None, path2=None, ispol=None, skipdth=False, delta=3.
                                                     format(path+'/'+night,out), nstar=int(nstar))
                     except:
                         eprint('{0:<12s} ERROR! Can\'t open/read out file {1}. Ignoring this data...\n'.format(night+', '+f+':',out))
-                        continue
+                        exit(1)
 
                     P = float(P)*100
                     th = float(th)
@@ -2186,33 +2186,69 @@ def genTarget(target, path=None, path2=None, ispol=None, skipdth=False, delta=3.
 #                        flagstd = 'W'
 #                        tags[2] = 'no-std'
 
-                    vald=True
+#                    vald=True
                     # APPLY ALTERNATIVE METHOD TO COMPUTE DTHETA IN CASES WHERE THERE IS NO NIGHT'S STANDARD
                     while stdnames == '---' and ftype == 'obj':
 
                         night_alt=''
 #                        print '{0}/{1}/std.link'.format(path,night)
 #                        print _os.path.exists('{0}/{1}/std.link'.format(path,night))
-                        if vald and _os.path.exists('{0}/{1}/std.link'.format(path,night)):
+                        if _os.path.exists('{0}/{1}/std.link'.format(path,night)):
 #                            print 'entrou'
-                            file0 = _np.loadtxt('{0}/{1}/std.link'.format(path,night), dtype=str)
-                            if type(file0[0]) != _np.ndarray and _np.size(file0) == 2:
-                                file0 = file0.reshape(-1,2)
-                            for line0 in file0:
-                                if abs(float(line0[0])-float(calc)) <= delta:
-                                    night_alt = line0[1]
-                                    break
+                            try:
+                                file0 = _np.loadtxt('{0}/{1}/std.link'.format(path,night), dtype=str)
+                                if type(file0[0]) != _np.ndarray and _np.size(file0) == 2:
+                                    file0 = file0.reshape(-1,2)
+                                for line0 in file0:
+                                    if abs(float(line0[0])-float(calc)) <= delta:
+                                        night_alt = line0[1]
+                                        break
+                            except:
+                                eprint(('\n{0:<12s} ERROR! Bad format for the file {0}/std.link. Check and run again.').format(night))
+                                exit(1)
                             # if temporary for me.
                         if night_alt == 's' or _os.path.exists('{0}/{1}/skipstd'.format(path,night)):
                             print(('{0:<12s} WARNING! No standard correction as specified inside std.link.\n').format(night+', '+f+':', night_alt))
                             break
-                        if night_alt=='':
-                            night_alt = raw_input('\n{0:<12s} Do you want to select some standard from another day?\n{0:<12s} #Type the date or `s` to skip: '.format('','#'))
-                            print('')
-                            if night_alt in ('s','S'):
-                                break
+                        if not _os.path.exists('{0}/{1}/std.link'.format(path,night)):
+                            eprint(('\n{0:<12s} ERROR! There is no standard star for calcite {1} and neither\n a '+\
+                                    'std.link file pointing to the night whose standard must be used:\n' +\
+                                    '   1) Check if {1} value is covered by the +-{2} tolerance for the angle\n'+\
+                                    '      of the calcite.\n'+\
+                                    '   2) If there is no standard star indeed, create a plain text file\n'+\
+                                    '      {0}/std.link.\n' +\
+                                    '   3) Its content must have one or two lines with an average angle for\n' +\
+                                    '      the missing calcite and the night of the same mission whose standard\n'+\
+                                    '      is to be used.\n' +\
+                                    '   4) Remember the average angle needs cover the angles of all observations\n'+\
+                                    '      within +-{2}.\n' +\
+                                    '   5) If there are no standard star in none night of the mission, use the\n'+\
+                                    '      `s` token (of `skip`) instead of the night indicator.\n\n'+\
+                                    '   An example of std.link content (inside 12set09/std.link):\n'+\
+                                    '     140.0  12set08\n'+\
+                                    '     172.0  s'+\
+                                    '').format(night, calc, delta))
+                            exit(1)
+                        # Case there exists a std.link file, but not a line for the missing calcite, the procedure will
+                        # enter inside elif below
+                        elif night_alt=='':
+                            eprint(('\n{0:<12s} ERROR! There is no standard star for calcite {1} and neither\n'+\
+                                    'a line inside std.link file pointing to another night.\n'+\
+                                    '   1) Check if {1} value is covered by the +-{2} tolerance for the angle\n'+\
+                                    '      of the calcite.\n'+\
+                                    '   2) Case there is no standard star for such calcite in none night,\n' +\
+                                    '      use the `s` token to `skip` the equatorial correction, adding a line\n'+\
+                                    '      in std.link like `{3:.1f}  s`.'
+                                    '').format(night, calc, delta, float(calc)))
+                            exit(1)
 
-                        if night_alt!='' and _os.path.exists('{0}/{1}'.format(path,night_alt)):
+#                        if night_alt=='':
+#                            night_alt = raw_input('\n{0:<12s} Do you want to select some standard from another day?\n{0:<12s} #Type the date or `s` to skip: '.format('','#'))
+#                            print('')
+#                            if night_alt in ('s','S'):
+#                                break
+
+                        if _os.path.exists('{0}/{1}'.format(path,night_alt)):
                             stdnames, mdth, smdth, flagstd, tags[2] = corObjStd(night_alt, f, calc, path=path, delta=delta, verbose=False)
                             valc = False
                             if stdnames != '---':
@@ -2222,18 +2258,13 @@ def genTarget(target, path=None, path2=None, ispol=None, skipdth=False, delta=3.
                                     tags[2] = 'oth-day-std'
                                 else:
                                     tags[2] += ',oth-day-std'
-                                if vald:
-                                    print(('{0:<12s} WARNING! Using standard from another night ({1}) as specified inside std.link.\n').format(night+', '+f+':', night_alt))
-                            elif vald: 
-                                print(('\n{0:<12s} ERROR! Standard not found inside the alternative night {1}!').format(night+', '+f+':', night_alt))
-                                vald = False
+                                print(('{0:<12s} WARNING! Using standard from another night ({1}) as specified inside std.link.\n').format(night+', '+f+':', night_alt))
                             else:
-                                print(('\n{0:<12s} ERROR! Standard not found inside the alternative night {1}!').format('', night_alt))
-                        elif vald: 
-                            print(('\n{0:<12s} ERROR! Standard not found inside the alternative night {1}!').format(night+', '+f+':', night_alt))
-                            vald = False
+                                print(('\n{0:<12s} ERROR! Standard not found inside the alternative night {1} pointed by std.link file (calcite {2})!').format(night, night_alt,calc))
+                                exit(1)
                         else:
-                            print(('\n{0:<12s} ERROR! Standard not found inside the alternative night {1}!').format('', night_alt))
+                            eprint(('\n{0:<12s} ERROR! Missing night named as {1} pointed by std.link file.').format(night, night_alt))
+                            exit(1)
 #                        print stdname, thstd, angref, flagstd, tags[2]
 
                     # Set the tags concerning to the standard
@@ -2332,6 +2363,9 @@ def genTarget(target, path=None, path2=None, ispol=None, skipdth=False, delta=3.
         else:
             f0 = open('{0}/{1}_iscor.log'.format(path2,target),'w')
 
+        #print(lines)
+        slines = sorted(lines[:-2].split('\n'))#, key=lambda x: [x[0],x[3]])
+        lines = '\n'.join(slines)
         if target == 'field':
             lines = ('#{:>11s} {:>7s} {:>7s} {:>4s} {:>5s} {:>12s} {:>6s} {:>6s}' +\
                         ' {:>8s} {:>8s} {:>8s} {:>7s} {:>7s} {:>6s} {:>13s}' +\
@@ -2358,6 +2392,7 @@ def genTarget(target, path=None, path2=None, ispol=None, skipdth=False, delta=3.
             print('DONE! {0} lines written in {1}/{2}_iscor.log.'.format(nlines,path2,target))
     else:
         eprint('NOT DONE! No valid observation was found for target `{0}`.'.format(target))
+#        exit(1)
       
     return
 
@@ -2455,7 +2490,7 @@ def fixISP(logfile, ispol, path2=None):
         print('DONE! File written in {0}/{1}_iscor.log.'.format(path2,star))
     else:
         eprint('NOT DONE! No observation for target `{0}`.'.format(star))
-
+        exit(1)
 
     return
 
@@ -3104,6 +3139,10 @@ def graf_t(logfile, path2=None, vfilter=['no-std'], save=False, extens='pdf', fi
     Be star in the logfile .log file (the outfile from
     polt.genTarget). Propagates error of standard star.
 
+    'extens' can be a list-type, whose elements are all formats
+    to be saved.
+
+
     If 'no-std' is in vfilter, no data with 'no-std' tag will be
     displayed, but the others filtered data will be showed
     with a 'x' symbol.
@@ -3380,7 +3419,11 @@ def graf_t(logfile, path2=None, vfilter=['no-std'], save=False, extens='pdf', fi
 #        cb.set_ticklabels(range(int(limJD[0]),int(limJD[1]),50))
 
     if save:
-        _plt.savefig('{0}/{1}_t_{2}.{3}'.format(path2,star,filt,extens), bbox_inches='tight')
+        if type(extens) in (list, _np.ndarray):
+            for exi in extens:
+                _plt.savefig('{0}/{1}_t_{2}.{3}'.format(path2,star,filt,exi), bbox_inches='tight')
+        else:
+            _plt.savefig('{0}/{1}_t_{2}.{3}'.format(path2,star,filt,extens), bbox_inches='tight')
     else:
         _plt.show(block=False)
 
@@ -3899,6 +3942,10 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
 
 
 
+    if mcmc and type(extens) in [list, _np.ndarray]:
+        eprint('ERROR: `extens` parameter CAN`T be a list type if the `mcmc` parameter is setted as True.')
+        exit(1)
+
     _plt.close('all')
     star = _phc.trimpathname(logfile)[1].split('.')[0].split('_')[0]
     if star in _phc.bes:
@@ -3928,7 +3975,11 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
 #        _plt.close(fig_aux)
         
         if save:
-            fig.savefig('{0}/{1}_qu_u.{2}'.format(path2,star,extens), bbox_inches='tight')
+            if type(extens) in (list, _np.ndarray):
+                for exi in extens:
+                    fig.savefig('{0}/{1}_qu_u.{2}'.format(path2,star,exi), bbox_inches='tight')
+            else:
+                fig.savefig('{0}/{1}_qu_u.{2}'.format(path2,star,extens), bbox_inches='tight')
 #            _plt.close(fig)
         else:
             fig.show()
@@ -3986,7 +4037,11 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
 #        cb.set_ticklabels(range(int(limjd[0]),int(limjd[1]),50))
 
         if save:
-            fig.savefig('{0}/{1}_qu.{2}'.format(path2,star,extens), bbox_inches='tight')
+            if type(extens) in (list, _np.ndarray):
+                for exi in extens:
+                    fig.savefig('{0}/{1}_qu.{2}'.format(path2,star,exi), bbox_inches='tight')
+            else:
+                fig.savefig('{0}/{1}_qu.{2}'.format(path2,star,extens), bbox_inches='tight')
 #            _plt.close(fig)
         else:
             fig.show()
@@ -4002,7 +4057,11 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
 #            _plt.close(fig_aux)
 
             if save:
-                fig.savefig('{0}/{1}_qu_{2}.{3}'.format(path2,star,filt,extens), bbox_inches='tight')
+                if type(extens) in (list, _np.ndarray):
+                    for exi in extens:
+                        fig.savefig('{0}/{1}_qu_{2}.{3}'.format(path2,star,filt,exi), bbox_inches='tight')
+                else:
+                    fig.savefig('{0}/{1}_qu_{2}.{3}'.format(path2,star,filt,extens), bbox_inches='tight')
 #                _plt.close(fig)
             else:
                 _plt.show()
@@ -4077,11 +4136,11 @@ def sintLeff(ccdn='ixon', step=5., save=True, extens='pdf'):
         fqe = _np.loadtxt('{0}/refs/QE_{1}.dat'.format(_hdtpath(),ccdn),skiprows=1, dtype=float, unpack=True) # unpack is to get the transposed array
     except:
         eprint('ERROR: CCD name \'{0}\' not identified!'.format(ccdn))
-        return
+        exit(1)
 
     if step not in range(5, 505, 5):
         eprint('ERROR: step value not valid! Put some value among 5, 10, 15, ..., 500')
-        return        
+        exit(1)
 
     # Interpolate QE
     qe = _interp1d(fqe[0], fqe[1], kind='cubic')
