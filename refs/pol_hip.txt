@@ -271,3 +271,13 @@ h37062                      # field of tori observed in 2011 (also known as thet
 v1073ori                    # field of tori observed in 2011
 v1230ori                    # field of tori observed in 2011
 vmrori                      # field of tori observed in 2011
+hip85877
+hip85804
+hip85642
+hip85315
+hip86278
+hip85391
+hip85395
+hip85242
+hip84970
+hip85703

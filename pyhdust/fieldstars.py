@@ -157,7 +157,7 @@ def readcsv(csvfile, be):
 
 def gencsv(csvin, path=None, skipdth=False, delta=3.5, epssig=2.0):
     """
-    Generate a csvfile with every observations for the standard stars
+    Generate a csvfile with every observations for the field stars
     listed in pyhdust/refs/pol_hip.txt.
 
     Compute lambda_eff using color index and an mean airmass X=1.35.
@@ -165,7 +165,7 @@ def gencsv(csvin, path=None, skipdth=False, delta=3.5, epssig=2.0):
 
     INPUT
         csvin        The csv file with the informations
-                     about the standard stars. The columns are
+                     about the field stars. The columns are
                      indentified through idx1[] dictionary.
         path         The path to the ``red`` directory, inside
                      which are the nights with the observations
@@ -1322,6 +1322,8 @@ def graf_p(csvfile, be, thetfile=None, path=None, vfilter=[], vfilter_be=[], sav
            overwriting this file. If there exists a ./'be'_is.csv
            file and some standard star was not fitted yet, this
            routine will do that and append a line to the csv file.
+           This routine WON'T display the stars whose 13th column in
+           'be'_is.csv be assigned with '0' value.
 
     'rotate' : DON'T WORKING PROPERLY. Rotate the polarization of
                field stars in QU diagram by the mean angle? A
@@ -1358,17 +1360,18 @@ def graf_p(csvfile, be, thetfile=None, path=None, vfilter=[], vfilter_be=[], sav
         """
 
         pmax, lmax = [], []
+        plott = 1
         fr = open('{0}_is.csv'.format(be), 'r')
         csvread = csv.reader(fr, delimiter=';')#, quoting=csv.QUOTE_NONE, quotechar='')
         for i, line in enumerate(csvread):
             if line[0] == star and (secondcol==None or line[1]==secondcol):
                 csvwriter.writerow(line)
-                pmax, lmax = map(lambda v: float(v), line[2:5]), map(lambda v: float(v), line[5:8])
+                pmax, lmax, plott = map(lambda v: float(v), line[2:5]), map(lambda v: float(v), line[5:8]), float(line[13])
 #                break
 
         fr.close()
 
-        return pmax, lmax
+        return pmax, lmax, plott
 
 
         
@@ -1558,16 +1561,21 @@ def graf_p(csvfile, be, thetfile=None, path=None, vfilter=[], vfilter_be=[], sav
             longname = True
 
         if not rotate:
-            ax.errorbar(pts[0], pts[1], yerr=pts[2], label=nome, linestyle='', marker='o', color=color)
+            if not fit:
+                ax.errorbar(pts[0], pts[1], yerr=pts[2], label=nome, linestyle='', marker='o', color=color)
 
             # Fit data HERE or copy from the previous csv file
             if fit:
                 if usePrevious:
 #                    means = map(lambda v: '{0:.2f}'.format(v), means[:2]) + ['{:.1f}'.format(means[2])]
 #                    psp = map(lambda v: '{0:.1f}'.format(v), psp)
-                    pmax_fit, lmax_fit = copyFit(star, csvout)
+                    pmax_fit, lmax_fit, plott = copyFit(star, csvout)
                 else:
                     pmax_fit, lmax_fit = [], []
+                    plott = 1
+
+                if plott==1:
+                    ax.errorbar(pts[0], pts[1], yerr=pts[2], label=nome, linestyle='', marker='o', color=color)
 #                print usePrevious
 #                print pmax_fit, lmax_fit
 
@@ -1595,8 +1603,10 @@ def graf_p(csvfile, be, thetfile=None, path=None, vfilter=[], vfilter_be=[], sav
                     pp = np.append(pp, polt.serkowski(pmax_fit[0], lmax_fit[0]*10000, lli, law=law, mode=2))
 
                 # Only plot the graph if there are more than one data, because with an only point
-                # the curve is not defined! But the emcee was runned to generate the covariance map
-                if len(pts[0]) > 1:
+                # the curve is not defined! But the emcee was runned to generate the covariance map.
+                # If pmax and lmax were read from a *_is.csv file and this current star was assigned to not
+                # be plotted (plott==0), then it won't plotted below.
+                if len(pts[0]) > 1 and plott==1:
                      ax.plot(ll, pp, color=color)
 
         else:
@@ -1661,15 +1671,19 @@ def graf_p(csvfile, be, thetfile=None, path=None, vfilter=[], vfilter_be=[], sav
 
         if lbd != []:
 #            print lbd, pBe, s
-            ax.errorbar(lbd, pBe, yerr=s, label=r'$P_{IS}^\perp$', linestyle='', \
+            if not fit:
+                ax.errorbar(lbd, pBe, yerr=s, label=r'$P_{IS}^\perp$', linestyle='', \
                                                             marker='s', color='black')
-
             if fit:
-
                 if usePrevious:
-                    pmax_fit, lmax_fit = copyFit(be, csvout, secondcol=fixName(be)+' (perp)')
+                    pmax_fit, lmax_fit, plott = copyFit(be, csvout, secondcol=fixName(be)+' (perp)')
                 else:
                     pmax_fit, lmax_fit = [], []
+                    plott = 1
+
+                if plott==1:
+                    ax.errorbar(lbd, pBe, yerr=s, label=r'$P_{IS}^\perp$', linestyle='', \
+                                                            marker='s', color='black')
 
                 if (pmax_fit,lmax_fit) == ([],[]):
                     # Convert to microns
@@ -1685,7 +1699,7 @@ def graf_p(csvfile, be, thetfile=None, path=None, vfilter=[], vfilter_be=[], sav
                     pp = np.append(pp, polt.serkowski(pmax_fit[0], lmax_fit[0]*10000, lli, law=law, mode=2))
                 # Only plot the graph if there are more than one data, because with an only point
                 # the curve is not defined! But the emcee was runned to generate the covariance map
-                if len(pBe) > 1:
+                if len(pBe) > 1 and plott==1:
                     ax.plot(ll, pp, color='black')
 
 
@@ -1723,7 +1737,7 @@ def graf_p(csvfile, be, thetfile=None, path=None, vfilter=[], vfilter_be=[], sav
 
 
 
-def graf_pradial(csvfile, be, filt='pmax', vfilter=[], isfile=None, fit=False, \
+def graf_pradial(csvfile, be, filt='pmax', vfilter=[], pmaxfile=None, fit=False, \
                             bin_data=True, onlyY=True, save=False, extens='pdf', unbias='wk'):
     """
     Plot a field graph with polarization versus distance.
@@ -1732,12 +1746,12 @@ def graf_pradial(csvfile, be, filt='pmax', vfilter=[], isfile=None, fit=False, \
            'v','r','i'. If 'pmax' use the Pmax values
            from ./'be'_is.csv file to plot.
 
-    isfile : 'be'_is.csv file location (out from fs.graf_p).
+    pmaxfile : 'be'_is.csv file location (out from fs.graf_p).
               If None, it is suposed ./'be'_is.csv
 
     fit   : (only for filt=='pmax') fit a line in graph? This
             routine will not use in fitting the points whose
-            values in 22th column inside isfile have a '0'
+            values in 22th column inside pmaxfile have a '0'
             character (this column defines the points to be
             used in the adjust). The points not used will be
             marked with a 'x' in the graph.
@@ -1749,14 +1763,14 @@ def graf_pradial(csvfile, be, filt='pmax', vfilter=[], isfile=None, fit=False, \
     Considerations:
 
     - If filt=='pmax', don't plot the data whose values in 21th
-    column inside isfile have a '0' character.
+    column inside pmaxfile have a '0' character.
 
     - If filt=='pmax', don't use in fitting the points whose
-    values in 22th column inside isfile have a '0' character
+    values in 22th column inside pmaxfile have a '0' character
     when fit=True.  The points not used will be marked with a
     'x' in the graph.
 
-    - Skip the lines inside isfile commented with a '#', or with
+    - Skip the lines inside pmaxfile commented with a '#', or with
     a void first element
     
     """
@@ -1778,12 +1792,12 @@ def graf_pradial(csvfile, be, filt='pmax', vfilter=[], isfile=None, fit=False, \
         print('No {0} valid data!'.format(be))
         return
 
-    # Verify isfile
+    # Verify pmaxfile
     if filt == 'pmax':
-        if isfile == None:
-            isfile = '{0}_is.csv'.format(be)
-        if not os.path.exists(isfile):
-            print('No {0} file found!'.format(isfile))
+        if pmaxfile == None:
+            pmaxfile = '{0}_is.csv'.format(be)
+        if not os.path.exists(pmaxfile):
+            print('No {0} file found!'.format(pmaxfile))
             return
 
     # Initialize graphs
@@ -1807,7 +1821,7 @@ def graf_pradial(csvfile, be, filt='pmax', vfilter=[], isfile=None, fit=False, \
     # CASE 1)  filt=='pmax'
     if filt=='pmax':
 
-        with open(isfile, 'r') as fr:
+        with open(pmaxfile, 'r') as fr:
             csvread = csv.reader(fr, delimiter=';')#, quoting=csv.QUOTE_NONE, quotechar='')
 
 #            print objarr, plxarr
@@ -2576,7 +2590,7 @@ def rotQUBe(be, thetfile, path=None, every=False, propag=True, vfilter=['no-std'
 
 
 
-def fitSerk(larr, parr, sarr, star='', law='w82', n_burnin=300, n_mcmc=800, \
+def fitSerk(larr, parr, sarr, star='', law='w82', n_burnin=400, n_mcmc=800, \
                                                 n_walkers=120, extens='pdf'):
     """
         Fit Serkowski law using Markov Chain Monte Carlo

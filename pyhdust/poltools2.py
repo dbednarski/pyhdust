@@ -3146,7 +3146,7 @@ def splitData301(night, path_raw='raw', path_red='red'):
 #################################################
 #################################################
 #################################################
-def graf_t(logfile, path2=None, vfilter=['no-std'], save=False, extens='pdf', grafs=['pv','pb/pi']):
+def graf_t(logfile, path2=None, vfilter=['no-std'], save=False, extens='pdf', filt='v'):
     """
     Plot a P_V x t, theta_V x t and P_B/P_I x t graphs for the
     Be star in the logfile .log file (the outfile from
@@ -3154,11 +3154,6 @@ def graf_t(logfile, path2=None, vfilter=['no-std'], save=False, extens='pdf', gr
 
     'extens' can be a list-type, whose elements are all formats
     to be saved.
-
-    'grafs' is a list with the graphs to be ploted (up to down).
-    Each element can be 'pu','pb','pv','pr','pi' for % of polarization,
-    'thu','thb','thv','thr','thi' for polarization angle or
-    'pb/pi' for the inclination (color) of the polarization (P_b/P_i).
 
 
     If 'no-std' is in vfilter, no data with 'no-std' tag will be
@@ -3198,7 +3193,6 @@ def graf_t(logfile, path2=None, vfilter=['no-std'], save=False, extens='pdf', gr
         ###########
 
 
-
     ###########
     ## FUNC
     def plot(fig, axs):
@@ -3222,18 +3216,20 @@ def graf_t(logfile, path2=None, vfilter=['no-std'], save=False, extens='pdf', gr
 #        ax.set_title('{0} filter'.format(filt.upper()), fontsize=fonts[0]*factor, verticalalignment='bottom')
 #        ax.text(0.98, 0.9, '{0} filter'.format(filt.upper()), horizontalalignment='right', \
 #                 verticalalignment='bottom', transform=ax.transAxes, fontsize=fonts[1]*factor)
+        axs[2].set_xlabel(r'MJD', size=fonts[1]*factor)
+        axs[0].set_ylabel(r'$P_{0}$ (%)'.format(filt.upper()), size=fonts[1]*factor)
+        axs[1].set_ylabel(r'$P_B / P_I$', size=fonts[1]*factor)
+        axs[2].set_ylabel(r'$\theta_{0}$ (degree)'.format(filt.upper()), size=fonts[1]*factor)
+
 
         dayp, jdp, p, s = [[],[],[],[],[]], [[],[],[],[],[]], [[],[],[],[],[]], [[],[],[],[],[]]
         daythet, jdthet, thet, sthet = [[],[],[],[],[]], [[],[],[],[],[]], [[],[],[],[],[]], [[],[],[],[],[]]
         dayp_filt, jdp_filt, p_filt, s_filt = [[],[],[],[],[]], [[],[],[],[],[]], [[],[],[],[],[]], [[],[],[],[],[]]
         daythet_filt, jdthet_filt, thet_filt, sthet_filt = [[],[],[],[],[]], [[],[],[],[],[]], [[],[],[],[],[]], [[],[],[],[],[]]
         image = []
-        limJD=[10000000000.,0]
-        limP=[100.,0.]
-        limTh=[180.,0.]
+        limJD=[10000000000000.,0]
 
-
-        # 1) RECEIVING THE VALUES OF ALL POLARIZATIONS AND PB/PI
+        # Getting the values to fit and plot
         for line in lines:
 
             if line[16] != 'E':
@@ -3279,162 +3275,133 @@ def graf_t(logfile, path2=None, vfilter=['no-std'], save=False, extens='pdf', gr
 #        print jdp_filt, p_filt, s_filt
 
 
+        ##############
+        ### 1ST GRAPH
+        idx = filters.index(filt)
 
-        # 2) MAIN LOOP TO PLOT ALL SUBGRAPHS
-        for j,grafj in enumerate(grafs):
-
-            f2=''
-            if grafj == 'pb/pi':
-                o = 'p'
-                f1 = grafj[1]
-                f2 = grafj[4]
-                xxx = jdpbpi
-                yyy = pbpi
-                syyy = spbpi
-                xxx_filt, yyy_filt, syyy_filt = [],[],[]
-#                cor = jdpbpi
-                label = r'$P_{0}/P_{1}$'.format(f1.upper(),f2.upper())
-            elif _re.match('^p[ubvri]$', grafj) is not None:
-                o = 'p'
-                f1 = grafj[1]
-                xxx = jdp[filters.index(f1)]
-                yyy = p[filters.index(f1)]
-                syyy = s[filters.index(f1)]
-                xxx_filt = jdp_filt[filters.index(f1)]
-                yyy_filt = p_filt[filters.index(f1)]
-                syyy_filt = s_filt[filters.index(f1)]
-#                cor = jdp[filters.index(f1)]
-                label = r'$P_{0}$ (%)'.format(f1.upper())
-                if yyy+yyy_filt != []:
-                    limm = [float(min(yyy+yyy_filt)),float(max(yyy+yyy_filt))]
-                    if limm[0] < limP[0]:
-                        limP[0] = limm[0]
-                    if limm[1] > limP[1]:
-                        limP[1] = limm[1]
-            elif _re.match('^th[ubvri]$', grafj) is not None:
-                o = 'th'
-                f1 = grafj[2]
-                xxx = jdthet[filters.index(f1)]
-                yyy = thet[filters.index(f1)]
-                syyy = sthet[filters.index(f1)]
-                xxx_filt = jdthet_filt[filters.index(f1)]
-                yyy_filt = thet_filt[filters.index(f1)]
-                syyy_filt = sthet_filt[filters.index(f1)]
-#                cor = jdthet[filters.index(f1)]
-                label = r'$\theta_{0}$ (%)'.format(f1.upper())
-                if yyy+yyy_filt != []:
-                    limm = [float(min(yyy+yyy_filt)),float(max(yyy+yyy_filt))]
-                    if limm[0] < limTh[0]:
-                        limTh[0] = limm[0]
-                    if limm[1] > limTh[1]:
-                        limTh[1] = limm[1]
+        # Plot data
+        if jdp[idx] != []:
+#            print(jdp[idx], p[idx])
+#            print(p)
+            if limJD[0] != limJD[1]:
+                col = _plt.cm.gist_rainbow([(jdi-limJD[0])/(limJD[1]-limJD[0]) for jdi in jdp[idx]])
+                image += [axs[0].scatter(jdp[idx], p[idx], marker='o', c=jdp[idx], vmin=limJD[0], \
+                                    vmax=limJD[1], edgecolors='white', s=60, cmap=cm)]
             else:
-                eprint('# ERROR: parameter `grafs` is not valid!')
-                exit(1)
+                col = _plt.cm.gist_rainbow([0.5])
+                lixo = [axs[0].scatter(jdp[idx], p[idx], marker='o', c=col, \
+                                    edgecolors='white', s=60, cmap=cm)]
 
-#            print(grafj)
-#            print(f1, f2)
-#            print(filters.index(f1))
-#            print('???')
-#            print(xxx)
-#            print(yyy)
-#            print(syyy)
-#            print('???_FILT')
-#            print(xxx_filt)
-#            print(yyy_filt)
-#            print(syyy_filt)
+            for i in range(len(jdp[idx])):
+                axs[0].errorbar(jdp[idx][i], p[idx][i], yerr=s[idx][i], linestyle='', \
+                                       elinewidth=0.6, marker='', c=col[i], alpha=0.7)
 
-            # Plot data
-            if xxx != []:
-                if limJD[0] != limJD[1]:
-                    col = _plt.cm.gist_rainbow([(jdi-limJD[0])/(limJD[1]-limJD[0]) for jdi in xxx])
-                    image += [axs[j].scatter(xxx, yyy, marker='o', c=xxx, vmin=limJD[0], \
-                                        vmax=limJD[1], edgecolors='white', s=60, cmap=cm)]
-                else:
-                    col = _plt.cm.gist_rainbow([0.5])
-                    lixo = [axs[j].scatter(xxx, yyy, marker='o', c=col, \
-                                        edgecolors='white', s=60, cmap=cm)]
+        # Plot ignored data
+        if jdp_filt[idx] != []:
+            if limJD[0] != limJD[1]:
+                col = _plt.cm.gist_rainbow([(jdi-limJD[0])/(limJD[1]-limJD[0]) for jdi in jdp_filt[idx]])
+                image += [axs[0].scatter(jdp_filt[idx], p_filt[idx], marker='x', c=jdp_filt[idx], vmin=limJD[0], \
+                                    vmax=limJD[1], s=50, linewidths=1.8, cmap=cm)]
+            else:
+                col = _plt.cm.gist_rainbow([0.5])
+                lixo = [axs[0].scatter(jdp_filt[idx], p_filt[idx], marker='x', c=col, \
+                                                    s=50, linewidths=1.8, cmap=cm)]
 
-                for i in range(len(xxx)):
-                    axs[j].errorbar(xxx[i], yyy[i], yerr=syyy[i], linestyle='', \
-                                           elinewidth=0.6, marker='', c=col[i], alpha=0.7)
+            for i in range(len(jdp_filt[idx])):
+                axs[0].errorbar(jdp_filt[idx][i], p_filt[idx][i], yerr=s_filt[idx][i], linestyle='', \
+                                    elinewidth=0.6, marker='', color=col[i], alpha=0.7)
 
-            # Plot ignored data
-            if xxx_filt != []:
-                if limJD[0] != limJD[1]:
-                    col = _plt.cm.gist_rainbow([(jdi-limJD[0])/(limJD[1]-limJD[0]) for jdi in xxx_filt])
-                    image += [axs[j].scatter(xxx_filt, yyy_filt, marker='x', c=xxx_filt, vmin=limJD[0], \
-                                        vmax=limJD[1], s=50, linewidths=1.8, cmap=cm)]
-                else:
-                    col = _plt.cm.gist_rainbow([0.5])
-                    lixo = [axs[j].scatter(xxx_filt, yyy_filt, marker='x', c=col, \
-                                                        s=50, linewidths=1.8, cmap=cm)]
+        ##############
+        ### 2ND GRAPH
 
-                for i in range(len(xxx_filt)):
-                    axs[j].errorbar(xxx_filt[i], yyy_filt[i], yerr=syyy_filt[i], linestyle='', \
-                                        elinewidth=0.6, marker='', color=col[i], alpha=0.7)
+        # Plot data 
+        if jdpbpi != []:
+            if limJD[0] != limJD[1]:
+                col = _plt.cm.gist_rainbow([(jdi-limJD[0])/(limJD[1]-limJD[0]) for jdi in jdpbpi])
+                image += [axs[1].scatter(jdpbpi, pbpi, marker='o', c=jdpbpi, vmin=limJD[0], \
+                                    vmax=limJD[1], edgecolors='white', s=60, cmap=cm)]
+            else:
+                col = _plt.cm.gist_rainbow([0.5])
+                lixo = [axs[1].scatter(jdpbpi, pbpi, marker='o', c=col, \
+                                     edgecolors='white', s=60, cmap=cm)]
+
+            for i in range(len(jdpbpi)):
+                axs[1].errorbar(jdpbpi[i], pbpi[i], yerr=spbpi[i], linestyle='', \
+                                    elinewidth=0.6, marker='', color=col[i], alpha=0.7)
+
+        # Plot ignored data
+#        image += [axs[1].scatter(jdp_filt[idx], p_filt[idx], marker='x', c=jdp_filt[idx], vmin=limJD[0], \
+ #                                   vmax=limJD[1], s=50, linewidths=1.8, cmap=cm)]
+ #       axs[1].errorbar(jdp_filt[idx], p_filt[idx], yerr=s_filt[idx], linestyle='', \
+ #                                   elinewidth=0.6, marker='', color='black', alpha=0.7)
+
+        ##############
+        ### 3RD GRAPH
+        idx = filters.index(filt)
+
+        # Plot data 
+        if jdthet[idx] != []:
+            if limJD[0] != limJD[1]:
+                col = _plt.cm.gist_rainbow([(jdi-limJD[0])/(limJD[1]-limJD[0]) for jdi in jdthet[idx]])
+                image += [axs[2].scatter(jdthet[idx], thet[idx], marker='o', c=jdthet[idx], vmin=limJD[0], \
+                                    vmax=limJD[1], edgecolors='white', s=60, cmap=cm)]
+            else:
+                col = _plt.cm.gist_rainbow([0.5])
+                lixo = [axs[2].scatter(jdthet[idx], thet[idx], marker='o', c=col, \
+                                       edgecolors='white', s=60, cmap=cm)]
 
 
-            # Setting the label
-            axs[j].set_ylabel(label, size=fonts[1]*factor)
-            axs[j].yaxis.label.set_fontsize(fonts[1]*factor)
-            for item in axs[j].get_yticklabels():
-                item.set_fontsize(fonts[2]*factor)
+            for i in range(len(jdthet[idx])):
+                axs[2].errorbar(jdthet[idx][i], thet[idx][i], yerr=sthet[idx][i], linestyle='', \
+                                    elinewidth=0.6, marker='', color=col[i], alpha=0.7)
 
+        # Plot ignored data
+        if jdthet_filt[idx] != []:
+            if limJD[0] != limJD[1]:
+                col = _plt.cm.gist_rainbow([(jdi-limJD[0])/(limJD[1]-limJD[0]) for jdi in jdthet_filt[idx]])
+                image += [axs[2].scatter(jdthet_filt[idx], thet_filt[idx], marker='x', c=jdthet_filt[idx], vmin=limJD[0], \
+                                    vmax=limJD[1], s=50, linewidths=1.8, cmap=cm)]
+            else:
+                col = _plt.cm.gist_rainbow([0.5])
+                lixo = [axs[2].scatter(jdthet_filt[idx], thet_filt[idx], marker='x', c=col, \
+                                       s=50, linewidths=1.8, cmap=cm)]
+                            
+            for i in range(len(jdthet_filt[idx])):
+                axs[2].errorbar(jdthet_filt[idx][i], thet_filt[idx][i], yerr=sthet_filt[idx][i], linestyle='', \
+                                    elinewidth=0.6, marker='', color=col[i], alpha=0.7)
 
         # Fix limits
 #        ax.autoscale(False)
 #        ax.plot(ax.get_xlim(), [0,0], 'k--')
 #        ax.plot([0,0], ax.get_ylim(), 'k--')
 
-        # Setting the xlabel
-        axs[-1].set_xlabel(r'MJD', size=fonts[1]*factor)
-        axs[-1].xaxis.label.set_fontsize(fonts[1]*factor)
-        for item in axs[-1].get_xticklabels():
+        # Setting sizes
+        axs[2].xaxis.label.set_fontsize(fonts[1]*factor)
+        axs[0].yaxis.label.set_fontsize(fonts[1]*factor)
+        axs[1].yaxis.label.set_fontsize(fonts[1]*factor)
+        axs[2].yaxis.label.set_fontsize(fonts[1]*factor)
+
+        for item in axs[2].get_xticklabels():
+            item.set_fontsize(fonts[2]*factor)
+        for item in axs[0].get_yticklabels():
+            item.set_fontsize(fonts[2]*factor)
+        for item in axs[1].get_yticklabels():
+            item.set_fontsize(fonts[2]*factor)
+        for item in axs[2].get_yticklabels():
             item.set_fontsize(fonts[2]*factor)
 
-        # Expanding the ranges to avoid the data point to fill under the border of graph
-        if limTh != []:
-            if limTh[0] < 2.:
-                limTh=[0,limTh[1]+2]
-            else:
-                limTh=[limTh[0]-2,limTh[1]+2]
-        if limP != []:
-            if limP[0] < .03:
-                limP=[0,limP[1]+.03]
-            else:
-                limP=[limP[0]-.03,limP[1]+.03]
-        if limJD != []:
-            # fattor is a variable which depends the range of MJD values.
-            if limJD[1]-limJD[0] < 2:
-                fattor = 2
-            else:
-                fattor = (limJD[1]-limJD[0])/25
-            if limJD[0] < 100.:
-                limJD=[0,limJD[1]+fattor]
-            else:
-                limJD=[limJD[0]-fattor,limJD[1]+fattor]
-
-
-#        print(image)
-        return [image], limJD, limP, limTh
+        return image
         ###########
 
    
 
     _plt.close('all')
-    nome = _phc.trimpathname(logfile)[1].split('.')[0].split('_')
-    star = nome[0]
-    if len(nome) > 1:
-        suffix = '_'+nome[1]
-    else:
-        suffix = ''
-
+    star = _phc.trimpathname(logfile)[1].split('.')[0].split('_')[0]
     if star in _phc.bes:
         be = _phc.bes[star]
     else:
         be = star
-    images, limJD, limP, limTh = [], [], [], []
+    images = []
 
     if path2 == None or path2 == '.':
         path2 = _os.getcwd()
@@ -3446,104 +3413,38 @@ def graf_t(logfile, path2=None, vfilter=['no-std'], save=False, extens='pdf', gr
         vfilter = []
 
     # Generate the four axes (sorted as BVRI)
-    ngrafs = len(grafs)
-    if ngrafs == 0 or ngrafs > 10:
-        eprint('ERROR: number of graphs in `grafs` variable must be between 0 and 10.')
-        exit(1)
-
-    # figuresize is proportional to the number of graphs
-    fig = _plt.figure(1,figsize=(9,len(grafs)*2))
-    fig.suptitle(be,fontsize=fonts[0])
-    axs = [_plt.subplot(ngrafs, 1, 1)]
-    p0, th0 = -1, -1
-    if _re.match('^p[ubvri]$', grafs[0]) is not None:
-        p0 = 0
-    elif _re.match('^th[ubvri]$', grafs[0]) is not None:
-        th0 = 0
-    elif grafs[0] != 'pb/pi':
-        eprint('# ERROR: parameter `grafs` is not valid!')
-        exit(1)
-
-    # Creating and sharing the axes
-    for i in range(1,ngrafs):
-        if grafs[i] == 'pb/pi':
-            axs += [_plt.subplot(ngrafs, 1, i+1, sharex=axs[0])]
-        elif _re.match('^p[ubvri]$', grafs[i]) is not None:
-            if p0 == -1:
-                axs += [_plt.subplot(ngrafs, 1, i+1, sharex=axs[0])]
-                p0 = i
-            else:
-                axs += [_plt.subplot(ngrafs, 1, i+1, sharex=axs[0], sharey=axs[p0])]
-        elif _re.match('^th[ubvri]$', grafs[i]) is not None:
-            if th0 == -1:
-                axs += [_plt.subplot(ngrafs, 1, i+1, sharex=axs[0])]
-                th0 = i
-            else:
-                axs += [_plt.subplot(ngrafs, 1, i+1, sharex=axs[0], sharey=axs[th0])]
-        else:
-            eprint('# ERROR: parameter `grafs` is not valid!')
-            exit(1)
-
-    # Fix the spacing among the subgraphs
-    _plt.subplots_adjust(hspace=0.08, wspace=0.06)
+    fig = _plt.figure(1)
+    axs = [_plt.subplot(3, 1, 1)]
+    axs += [_plt.subplot(3, 1, 2, sharex=axs[0])]
+    axs += [_plt.subplot(3, 1, 3, sharex=axs[0])]
+    
+    # Fix the spacing among the subgraphs and set the QU limits
+    _plt.subplots_adjust(hspace=0.06, wspace=0.06)
 
     # Do the graphs
-    images, limJD, limP, limTh = plot(fig, axs)
+    images += [plot(fig, axs)]
 
-    # Setting the ranges
-    if limJD != []:
-        axs[0].set_xlim(limJD)
-    if p0 != -1 and limP != []:
-        axs[p0].set_ylim(limP)
-    if th0 != -1 and limTh != []:
-        axs[th0].set_ylim(limTh)
-
-    ndias = limJD[1]-limJD[0]
-    nanos = ndias/365
-    nmeses = nanos*12
-    print(limJD)
-    print(nanos)
-    print(nmeses)
-    print(ndias)
-
-    try:
-        if nanos >= 7:
-            axs[0] = _phc.civil_ticks(axs[0],civcfg=[int(nanos/10)+1,'y'],\
-                            civdt=[_jdcal.jd2gcal(2400000.5,limJD[0])[0],1,1],label='%Y')
-        elif nanos >= 1:
-            axs[0] = _phc.civil_ticks(axs[0],civcfg=[int(nmeses/6),'m'],label='%Y/%m')
-        elif nmeses >= 8:
-            axs[0] = _phc.civil_ticks(axs[0],civcfg=[2,'m'],label='%Y/%m')
-        elif nmeses >= 4:
-            axs[0] = _phc.civil_ticks(axs[0],civcfg=[1,'m'],label='%Y/%m')
-        else:
-            axs[0] = _phc.civil_ticks(axs[0],civcfg=[int(ndias/4),'d'],label='%Y/%m/%d')
-#        elif nmeses < 1:
-#            print(ndias/4)
-#            axs[0] = _phc.civil_ticks(axs[0],civcfg=[int(ndias/4),'d'],label='%Y/%m/%d')
-    except:
-        print('# WARNING: can`t generate civil dates on x axes.')
-    
     # Unset the ticklabels
-    for axi in axs[:-1]:
-        _plt.setp(axi.get_xticklabels(), visible=False)
-        axi.set_xlabel('')
+    _plt.setp(axs[0].get_xticklabels(), visible=False)
+    _plt.setp(axs[1].get_xticklabels(), visible=False)
+    axs[0].set_xlabel('')
+    axs[1].set_xlabel('')
     fig.subplots_adjust(right=0.8)
 
     # Plot colormap
-#    if images != [[]]:
-#        cax = fig.add_axes([0.85, 0.3, 0.02, 0.5])
-#        cb = _plt.colorbar(images[0][0], cax=cax, orientation='vertical')
-#        cb.set_label('MJD')
+    if images != [[]]:
+        cax = fig.add_axes([0.85, 0.3, 0.02, 0.5])
+        cb = _plt.colorbar(images[0][0], cax=cax, orientation='vertical')
+        cb.set_label('MJD')
 #        cb.ColorbarBase(cax, orientation='vertical', cmap=_plt.cm.gist_rainbow)
 #        cb.set_ticklabels(range(int(limJD[0]),int(limJD[1]),50))
 
     if save:
         if type(extens) in (list, _np.ndarray):
             for exi in extens:
-                _plt.savefig('{0}/{1}{2}_{3}.{4}'.format(path2,star,suffix,grafs,exi), bbox_inches='tight')
+                _plt.savefig('{0}/{1}_t_{2}.{3}'.format(path2,star,filt,exi), bbox_inches='tight')
         else:
-            _plt.savefig('{0}/{1}{2}_{3}.{4}'.format(path2,star,suffix,grafs,extens), bbox_inches='tight')
+            _plt.savefig('{0}/{1}_t_{2}.{3}'.format(path2,star,filt,extens), bbox_inches='tight')
     else:
         _plt.show(block=False)
 
@@ -4067,13 +3968,7 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
         exit(1)
 
     _plt.close('all')
-    nome = _phc.trimpathname(logfile)[1].split('.')[0].split('_')
-    star = nome[0]
-    if len(nome) > 1:
-        suffix = '_'+nome[1]
-    else:
-        suffix = ''
-
+    star = _phc.trimpathname(logfile)[1].split('.')[0].split('_')[0]
     if star in _phc.bes:
         be = _phc.bes[star]
     else:
@@ -4096,7 +3991,6 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
 
         ### 1.1 Do the graph for U filter
         fig = _plt.figure()
-        fig.suptitle(be,fontsize=fonts[0])
         ax = _plt.subplot(1, 1, 1)
         arr += [plotQU('u', fig, ax, vfilter, odr, mcmc)]
 #        _plt.close(fig_aux)
@@ -4104,9 +3998,9 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
         if save:
             if type(extens) in (list, _np.ndarray):
                 for exi in extens:
-                    fig.savefig('{0}/{1}_qu_u{2}.{3}'.format(path2,star,suffix,exi), bbox_inches='tight')
+                    fig.savefig('{0}/{1}_qu_u.{2}'.format(path2,star,exi), bbox_inches='tight')
             else:
-                fig.savefig('{0}/{1}_qu_u{2}.{3}'.format(path2,star,suffix,extens), bbox_inches='tight')
+                fig.savefig('{0}/{1}_qu_u.{2}'.format(path2,star,extens), bbox_inches='tight')
 #            _plt.close(fig)
         else:
             fig.show()
@@ -4166,9 +4060,9 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
         if save:
             if type(extens) in (list, _np.ndarray):
                 for exi in extens:
-                    fig.savefig('{0}/{1}_qu{2}.{3}'.format(path2,star,suffix,exi), bbox_inches='tight')
+                    fig.savefig('{0}/{1}_qu.{2}'.format(path2,star,exi), bbox_inches='tight')
             else:
-                fig.savefig('{0}/{1}_qu{2}.{3}'.format(path2,star,suffix,extens), bbox_inches='tight')
+                fig.savefig('{0}/{1}_qu.{2}'.format(path2,star,extens), bbox_inches='tight')
 #            _plt.close(fig)
         else:
             fig.show()
@@ -4186,9 +4080,9 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
             if save:
                 if type(extens) in (list, _np.ndarray):
                     for exi in extens:
-                        fig.savefig('{0}/{1}_qu_{2}{3}.{4}'.format(path2,star,filt,suffix,exi), bbox_inches='tight')
+                        fig.savefig('{0}/{1}_qu_{2}.{3}'.format(path2,star,filt,exi), bbox_inches='tight')
                 else:
-                    fig.savefig('{0}/{1}_qu_{2}{3}.{4}'.format(path2,star,filt,suffix,extens), bbox_inches='tight')
+                    fig.savefig('{0}/{1}_qu_{2}.{3}'.format(path2,star,filt,extens), bbox_inches='tight')
 #                _plt.close(fig)
             else:
                 _plt.show()

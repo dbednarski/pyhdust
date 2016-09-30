@@ -801,3 +801,34 @@ bestars = [
 if __name__ == "__main__":
     pass
 
+
+
+# Plot-related
+def civil_ticks(ax, civcfg=[1, 'm'], civdt=None, tklab=True, label="%d %b %y"):
+    """ Add the civil ticks in the axis.
+
+    :param civcfg: forces a given timestep between the ticks [`n`, interval].
+    Interval can be week (`w`), month (`m`) or year (`y`). 
+    :param civdt: sets the initial tick date. Format: [Y, M, D]
+    :param tklab: if False, the civil date labels are not written.
+
+    :EXAMPLE:
+
+        fig, ax = plt.subplots()
+        ax.plot(x, y)
+        ax = phc.civil_ticks(ax)
+    """
+    if civdt is not None:
+        civdt = _dt.datetime(civdt[0], civdt[1], civdt[2]).date()
+    mjd0, mjd1 = ax.get_xlim()
+    dtticks = gentkdates(mjd0, mjd1, civcfg[0], civcfg[1], dtstart=civdt)
+    mjdticks = [_jdcal.gcal2jd(date.year, date.month, date.day)[1] for 
+        date in dtticks]
+    ax2 = ax.twiny()
+    ax2.set_xlim( ax.get_xlim() )
+    ax2.set_xticks(mjdticks)
+    if tklab:
+        ax2.set_xticklabels([date.strftime(label) for date in dtticks])
+    else:
+        ax2.set_xticklabels([])
+    return ax
