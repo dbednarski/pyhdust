@@ -12,6 +12,7 @@ History:
 """
 
 from __future__ import print_function
+from builtins import input
 from sys import exit, stderr
 import os as _os
 import re as _re
@@ -327,7 +328,7 @@ def chooseout(objdir, obj, f, nstar=1, sigtol=lambda sig: 1.4*sig):
         exit(1)
 
     # Calculate the number of outfiles to be returned.
-    n=npos/16   # operacao em formato int!
+    n=int(npos/16)   # operacao em formato int!
     rest = npos%16
     if n!=0:
         if rest == 0:
@@ -341,8 +342,8 @@ def chooseout(objdir, obj, f, nstar=1, sigtol=lambda sig: 1.4*sig):
         n = 1
         nlast = rest
 
-#    print n, rest, nlast
-    err = [1000.]*n
+#    print(n, rest, nlast)
+    err = [1000.0]*n
     outs = ['']*n
     # n contem o numero de outs que serao obtidos
     # nlast contem o numero de posicoes para o ultimo out
@@ -522,7 +523,7 @@ def queryout(objdir, obj, f, nstar=1, sigtol=lambda sig: 1.4*sig):
             testout, logout = verout(outs[i], obj, f, nstar=nstar, verbose=True)
 
             while True:
-                verif = raw_input('Use this out? (y/n): ')
+                verif = input('Use this out? (y/n): ')
                 if verif not in ('y','Y','n','N'):
                     print('Invalid choise!')
                 else:
@@ -533,7 +534,7 @@ def queryout(objdir, obj, f, nstar=1, sigtol=lambda sig: 1.4*sig):
             elif verif in ('n', 'N'):
                 opt=''  # for the first iteration
                 while True:
-                    opt = raw_input('Type the out number: ')
+                    opt = input('Type the out number: ')
                     # If opt is a valid value, assign the input number with the concerning out file
                     if opt in [str(j) for j in range(1,len(sortout)) if sortout[j] != '']:
                         outs[i] = sortout[int(opt)]
@@ -551,7 +552,7 @@ def queryout(objdir, obj, f, nstar=1, sigtol=lambda sig: 1.4*sig):
         while True:
             verif = True
             tags[i] = [False for j in dictags.keys()]
-            strin = raw_input('Select all tags that apply separated by commas (\'0\' for none): ')
+            strin = input('Select all tags that apply separated by commas (\'0\' for none): ')
             if strin == '0':
                 flag[i]='OK'
                 break
@@ -569,7 +570,7 @@ def queryout(objdir, obj, f, nstar=1, sigtol=lambda sig: 1.4*sig):
             if verif:
                 verif2=''
                 while verif2 not in ('y','Y','n','N'):
-                    verif2 = raw_input('For you, this data should appear as usable? (y/n): ')
+                    verif2 = input('For you, this data should appear as usable? (y/n): ')
                 if verif2 in ('y','Y'):
                     flag[i] = 'W'
                 else:
@@ -861,7 +862,7 @@ def grafall(objdir, filt, nstar=1, n=1, bestouts=[], shortmode=False):
             if len(logs) == 1:
                 nlin, ncol = 1, 1
             else:
-                nlin, ncol = 2, len(logs)/2
+                nlin, ncol = 2, int(len(logs)/2)
                 if len(logs)%2 != 0:
                     ncol += 1
         else:
@@ -924,11 +925,12 @@ def grafall(objdir, filt, nstar=1, n=1, bestouts=[], shortmode=False):
                 ax[2*j].text(0.85, 0.85, '#{0:<2d}'.format(count+k), \
                     horizontalalignment='left', verticalalignment='center', style='italic', \
                     transform=ax[2*j].transAxes, fontsize=20, color='red')
-                ax[2*j].set_axis_bgcolor(gencolour(ver[j]))
-                ax[2*j+1].set_axis_bgcolor(gencolour(ver[j]))
+                ax[2*j].set_facecolor(gencolour(ver[j]))
+                ax[2*j+1].set_facecolor(gencolour(ver[j]))
                 k += 1
-            
+
         _plt.show(block=False)
+        _plt.pause(0.1)
 
 
     # Generate graphs for the cases nlog > 8
@@ -989,13 +991,15 @@ def grafall(objdir, filt, nstar=1, n=1, bestouts=[], shortmode=False):
             # Generates the plots on the axes
             for j in range(0,nlog):
                 grafpol(logs[j+12*i], nstar, fig, ax[2*j], ax[2*j+1])
-                ax[2*j].set_axis_bgcolor(gencolour(ver[j]))
-                ax[2*j+1].set_axis_bgcolor(gencolour(ver[j]))
+                ax[2*j].set_facecolor(gencolour(ver[j]))
+                ax[2*j+1].set_facecolor(gencolour(ver[j]))
                 ax[2*j].text(0.85, 0.85, '#{0:<2d}'.format(count+j+i*12), \
                         horizontalalignment='left', verticalalignment='center', \
                         style='italic', transform=ax[2*j].transAxes, fontsize=20, color='red')
 
             _plt.show(block=False)
+            _plt.pause(0.1)
+
 
 
     logs = _glob('{0}/*_{1}_*.log'.format(objdir, filt))
@@ -1152,7 +1156,7 @@ def grafpol(filename, nstar=1, fig=None, ax1=None, ax2=None, save=False, extens=
                     Q = float(file0[i+2].split()[3])*_np.cos(2.*thet*_np.pi/180.)
                     U = float(file0[i+2].split()[3])*_np.sin(2.*thet*_np.pi/180.)
 #                    print Q, U, thet, float(file0[i+2].split()[3])
-                    n = npts/4 
+                    n = int(npts/4) 
                     if npts%4 != 0:
                         n = n+1
                     P_pts = []
@@ -1169,7 +1173,7 @@ def grafpol(filename, nstar=1, fig=None, ax1=None, ax2=None, save=False, extens=
                     delta2 = int(filename[-2+j:j])-1
                     # Bed: Funcionando para nlam >= 10  para impressão correta
 #                    str_pts = map(str, _np.arange(1,tnpts+1)+delta2)[::-1]
-                    str_pts = map(str, _np.arange(1,tnpts+1)+delta2)
+                    str_pts = list(map(str, _np.arange(1,tnpts+1)+delta2))
 
                     # Case _WP11110...1.log file
                     if npts != tnpts:
@@ -1239,7 +1243,7 @@ def grafpol(filename, nstar=1, fig=None, ax1=None, ax2=None, save=False, extens=
 
         ax2.set_yticks(range(int(ax2.get_yticks()[0]),int(ax2.get_yticks()[-1]+1), passo))
         ax1.set_xticklabels(ax1.get_xticks(), size=7)
-        ax1.set_yticklabels(ax1.get_yticks(), size=7)
+        ax1.set_yticklabels(_np.round(ax1.get_yticks(),5), size=7)
         ax2.set_xticklabels([int(ax2.get_xticks()[i]) for i in range(len(ax2.get_xticks()))], size=7)
         ax2.set_yticklabels(ax2.get_yticks(), size=7)
 
@@ -1468,6 +1472,9 @@ def genLog(path, subdirs, tgts, fileout, sigtol=lambda sigm: 1.4*sigm, \
         typ = 'targets'
     else:
         typ = fileout
+	
+#    print(subdirs)
+#    print(tgts)
 
 #    if mode not in ('std','obj'):
 #        print('\n# ERROR: mode \'{0}\' not valid (it\'s only valid \'std\' and \'obj\')'.format(mode))
@@ -1483,7 +1490,7 @@ def genLog(path, subdirs, tgts, fileout, sigtol=lambda sigm: 1.4*sigm, \
     if _os.path.exists('{0}/{1}.tmp'.format(path,fileout)) and len(_np.loadtxt('{0}/{1}.tmp'.format(path,fileout), dtype=str)) != 0:
         opt = ''
         while opt not in ('y','Y','n','N'):
-            opt = raw_input(('There exists one file concerning to a uncompleted previous run for {0}. ' +\
+            opt = input(('There exists one file concerning to a uncompleted previous run for {0}. ' +\
                             'Do you want to continue where it was stopped? (y/n): ').format(typ))
             if opt in ('y','Y'):
                 continuerun = True
@@ -1557,7 +1564,7 @@ def genLog(path, subdirs, tgts, fileout, sigtol=lambda sigm: 1.4*sigm, \
                     obj = tgts[i]   # It is needed this line here again
                 else:
                     while True:
-                        obj = raw_input(('Type a name for star #{0:d} (of {1:d}) ' +\
+                        obj = input(('Type a name for star #{0:d} (of {1:d}) ' +\
                                'inside {2} dir, filter {3}: '). format(nstar, nstars, objdir, f))
                         if obj != '' and ' ' not in obj and '#' not in obj and ':' not in obj:
                             loglines += '# WARNING: {0}_{1}: There are more than one star inside .out files.'\
@@ -1647,6 +1654,11 @@ def genAllLog(path=None, sigtol=lambda sigm: 1.4*sigm, autochoose=False, delta=3
             you can specify sigtol=lambda sigm: 1000.*sigm, for example.
     autochoose: choose best outfiles automatically, without
                 interaction?
+
+    The routine will vanishes 'path' directory, except the subdirectories called
+    "calib", "dark", "flat", "bias" and "tmp". You can use "tmp" subdirectore to
+    place all dummy subdirectories into.
+
     """
 
     if path == None or path == '.':
@@ -1657,7 +1669,7 @@ def genAllLog(path=None, sigtol=lambda sigm: 1.4*sigm, autochoose=False, delta=3
     if _os.path.exists('{0}/std.dat'.format(path)):
         if _os.path.exists('{0}/obj.dat'.format(path)):
             while True:
-                verif = raw_input('Caution: obj.dat and std.dat already exists. Are you sure to overwrite it/them (y/n): ')
+                verif = input('Caution: obj.dat and std.dat already exists. Are you sure to overwrite it/them (y/n): ')
                 if verif in ('n','N'):
                     print('Aborted!')
                     return
@@ -1709,12 +1721,12 @@ def genAllLog(path=None, sigtol=lambda sigm: 1.4*sigm, autochoose=False, delta=3
     # (Works on directories with suffix also (like 'dsco_a0'))
     for obj in [elem.split('_')[0] for elem in subdirs]:
         obj_curr = obj
-        while obj not in _np.hstack((ltgts,lstds,_np.array(['calib','flat','dark','bias']))):
+        while obj not in _np.hstack((ltgts,lstds,_np.array(['calib','flat','dark','bias','tmp']))):
             if obj_curr == obj:
                 print('\nObject {0} is not a known target or standard!!'.format(obj_curr))
             else:
                 print('\nObject {0} (and {1}) is not a known target or standard!!'.format(obj_curr, obj))
-            obj = raw_input('Type the common name (you can add a new target inside pyhdust/ref/pol_*.txt files, but be careful!): ')
+            obj = input('Type the common name (you can add a new target inside pyhdust/ref/pol_*.txt files, but be careful!): ')
         if obj in lstds:
             tgts.append('')
             # Only assigns standard's name if there is no std.dat file. Otherwise,
@@ -1724,7 +1736,7 @@ def genAllLog(path=None, sigtol=lambda sigm: 1.4*sigm, autochoose=False, delta=3
         elif obj in ltgts:
             tgts.append(obj)
             stds.append('')
-        elif obj in ('calib','flat','dark','bias'):
+        elif obj in ('calib','flat','dark','bias','tmp'):
             tgts.append('')
             stds.append('')
 
@@ -1825,7 +1837,7 @@ def corObjStd(night, f, calc, path=None, delta=3.5, verbose=True):
 #                calcite = ''
 #                print('{0:<12s} WARNING! Calcite name not identified for an angle of 0 degrees.'.format(night+', '+f+':'))
 #                while calcite not in ('a0','a2'):
-#                    calcite = raw_input('      Type the calcite name (a0/a2): ')
+#                    calcite = input('      Type the calcite name (a0/a2): ')
             if (calc < 12 and calc >= 0) or (calc > 78 and calc < 102) or (calc > 168 and calc < 180):
                 calcite = 'a2'
             elif calc >= 0 and calc < 180:
@@ -1836,7 +1848,7 @@ def corObjStd(night, f, calc, path=None, delta=3.5, verbose=True):
                 calcite = ''
                 print('{0:<12s} WARNING! Calcite name not identified for an angle of {1} degrees.'.format(night+', '+f+':', calc))
                 while calcite not in ('a0','a2'):
-                    calcite = raw_input('      Type the calcite name (a0/a2): ')
+                    calcite = input('      Type the calcite name (a0/a2): ')
 
             for filt in filters:
 
@@ -2253,7 +2265,7 @@ def genTarget(target, path=None, path2=None, ispol=None, skipdth=False, delta=3.
                             exit(1)
 
 #                        if night_alt=='':
-#                            night_alt = raw_input('\n{0:<12s} Do you want to select some standard from another day?\n{0:<12s} #Type the date or `s` to skip: '.format('','#'))
+#                            night_alt = input('\n{0:<12s} Do you want to select some standard from another day?\n{0:<12s} #Type the date or `s` to skip: '.format('','#'))
 #                            print('')
 #                            if night_alt in ('s','S'):
 #                                break
@@ -2891,8 +2903,8 @@ def setCCD(fitsfile):
             pass
 
     while ccd not in ('ikon', 'ixon', '301', '654', 'ikon-14912'):
-        ccd = raw_input('Type the CCD name (301/654/ikon/ikon-14912/ixon): ')
-
+        ccd = input('Type the CCD name (301/654/ikon/ikon-14912/ixon): ')
+	# VER ACIMA 2019
 
 
 
@@ -2933,7 +2945,7 @@ def splitData(night, path_raw='raw', path_red='red'):
     if _os.path.exists('{0}/{1}'.format(path_raw, night)) or  \
                         _os.path.exists('{0}/{1}'.format(path_red, night)):
         while True:
-            verif = raw_input('CAUTION: Directory \'{0}/{1}\' and/or \'{2}/{1}\' already exists! '.\
+            verif = input('CAUTION: Directory \'{0}/{1}\' and/or \'{2}/{1}\' already exists! '.\
                            format(path_raw, night, path_red) + 'Are you sure to continue, ' + \
                            'overwriting all data inside these directories? (y/n): ')
             print('')
@@ -3025,7 +3037,7 @@ def splitData301(night, path_raw='raw', path_red='red'):
                         _os.path.exists('{0}/{1}'.format(path_red, night)):
 
         while True:
-            verif = raw_input('CAUTION: Directory \'{0}/{1}\' and/or \'{2}/{1}\' already exists!\n'.\
+            verif = input('CAUTION: Directory \'{0}/{1}\' and/or \'{2}/{1}\' already exists!\n'.\
                            format(path_raw, night, path_red) + 'Are you sure to continue, ' + \
                            'overwriting all data inside these directories? (y/n): ')
             print('')
@@ -3976,7 +3988,7 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
             opt = ''
             while opt not in ('y','Y','n','N'):
                 print('Do you want to prune the limits and run again MCMC?')
-                opt = raw_input('(y/n): ')
+                opt = input('(y/n): ')
 
             if opt in ('y','Y'):
                 while True:
@@ -3985,7 +3997,7 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
                     for i, var in enumerate(dictvar):
                         while True:
                             try:
-                                etr = raw_input('{0}: specify in format `{0}_min,{0}_max`: '.format(var))
+                                etr = input('{0}: specify in format `{0}_min,{0}_max`: '.format(var))
             #                        p_int = [float(ei)-params_fit[0] for ei in petr.split(',')]
                                 ranges[i] = [float(ei) for ei in etr.split(',')]
                                 if len(ranges[i]) == 2:
@@ -4004,7 +4016,7 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
                         for i, var in enumerate(dictvar):
                             print('              {0}_min,{0}_max: {1},{2}'.format(var, ranges[i][0], ranges[i][1]))
 
-                        opt = raw_input('(y/n): ' )
+                        opt = input('(y/n): ' )
                     if opt in ('y','Y'):
                         _plt.close(fig1)
                         _plt.close(fig2)
@@ -4015,7 +4027,7 @@ def graf_qu(logfile, path2=None, mode=1, thetfile=None, isp=[], odr=True, mcmc=F
                     opt2 = 'N'
                 while opt2 not in ('y','Y','n','N'):
                     print('Do you want select a second peak?')
-                    opt2 = raw_input('(y/n): ')
+                    opt2 = input('(y/n): ')
 
                 _plt.close(fig1)
                 _plt.close(fig2)
@@ -4737,7 +4749,7 @@ def fitMCMCline(x, y, sx, sy, star='', margin=False, plot_adj=True, fig=None, ax
         opt = ''
         while opt not in ('y','Y','n','N'):
             print('Do you want to select specific ranges to compute the values?')
-            opt = raw_input('(y/n): ')
+            opt = input('(y/n): ')
         if opt in ('y','Y'):
 
             while True:
@@ -4746,7 +4758,7 @@ def fitMCMCline(x, y, sx, sy, star='', margin=False, plot_adj=True, fig=None, ax
                 for i, var in enumerate(dictvar[0]):
                     while True:
                         try:
-                            etr = raw_input('{0}: specify in format `{0}_min,{0}_max`: '.format(var))
+                            etr = input('{0}: specify in format `{0}_min,{0}_max`: '.format(var))
     #                        p_int = [float(ei)-params_fit[0] for ei in petr.split(',')]
                             ranges[i] = [float(ei) for ei in etr.split(',')]
                             if len(ranges[i]) == 2:
@@ -4765,7 +4777,7 @@ def fitMCMCline(x, y, sx, sy, star='', margin=False, plot_adj=True, fig=None, ax
                     for i, var in enumerate(dictvar[0]):
                         print('              {0}_min,{0}_max: {1},{2}'.format(var, ranges[i][0], ranges[i][1]))
 
-                    opt = raw_input('(y/n): ' )
+                    opt = input('(y/n): ' )
                 if opt in ('y','Y'):
                     print('')
                     break
@@ -4830,7 +4842,7 @@ def fitMCMCline(x, y, sx, sy, star='', margin=False, plot_adj=True, fig=None, ax
         
         # Computing the medians and errors according to the range from median
         # inside which there are 68.3% of the data
-        thet_mcmc, b_mcmc, Pb_mcmc, Yb_mcmc, Vb_mcmc = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
+        thet_mcmc, b_mcmc, Pb_mcmc, Yb_mcmc, Vb_mcmc = list((lambda v: (v[1], v[2]-v[1], v[1]-v[0])),
                                                 zip(*_np.percentile(samples_new, [16.075, 50, 83.925], axis=0)))
 
         #~ Print the output

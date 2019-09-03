@@ -5,6 +5,7 @@ PyHdust main module: Hdust tools.
 
 :license: GNU GPL v3.0 (https://github.com/danmoser/pyhdust/blob/master/LICENSE)
 """
+from __future__ import print_function
 import os as _os
 import time as _time
 import datetime as _datetime
@@ -937,7 +938,7 @@ def rotStar(Tp=20000., M=10.3065, rp=5.38462, star='B', beta=0.25, wfrac=0.8,
     if star in Bstars:
         i = _np.where(Bstars[:, 0] == star)
         i = i[0][0]
-        print Bstars[i][0]
+        print(Bstars[i][0])
         Tp = float(Bstars[i][1])
         M = float(Bstars[i][2]) * Msun
         rp = float(Bstars[i][3]) * Rsun
@@ -1036,13 +1037,13 @@ def obsCalc():
         modf = _math.modf
         # Julian calendar on or before 1582 October 4 and Gregorian calendar
         # afterwards.
-        if ((10000L * year + 100L * month + day) <= 15821004L):
+        if ((int(10000) * year + int(100) * month + day) <= int(15821004)):
             b = -2 + int(modf((year + 4716) / 4)[1]) - 1179
         else:
             b = int(modf(year / 400)[1]) - int(modf(year / 100)[1]) + \
                 int(modf(year / 4)[1])
 
-        mjdmidnight = 365L * year - 679004L + b + int(30.6001 * (month + 1)) + day
+        mjdmidnight = int(365) * year - int(679004) + b + int(30.6001 * (month + 1)) + day
 
         fracofday = base60_to_decimal( \
             " ".join([str(hour), str(minute), str(second)])) / 24.0
@@ -1060,29 +1061,29 @@ def obsCalc():
         if hmin > hnas + cor and hpoe > hmin:
             hnas = hmin
             if debug:
-                print 'ok0'
+                print('ok0')
         elif hmin > hnas + cor and hmax > hpoe and (hpoe - hmin) < -12:
             hnas = hmin
             if debug:
-                print 'ok0a'
+                print('ok0a')
         elif hmin > hnas + cor and hmax < hpoe and hnas < hmax:
             hnas = hmin
             if debug:
-                print 'ok1'
+                print('ok1')
         elif hmin < hnas + cor and hmax < hpoe and hnas < hmax:
             hpoe = hmax
             if debug:
-                print 'ok2'
+                print('ok2')
         elif hmin < hnas + cor and hmax < hpoe and (hnas - hmax) > 12:
             hpoe = hmax
             if debug:
-                print 'ok2a'
+                print('ok2a')
         elif hmin < hnas + cor and hmax > hpoe and (hpoe - hmin) < -12:
             if debug:
-                print 'ok3'
+                print('ok3')
         elif hmin < hnas + cor and hmax > hpoe and hpoe > hmin:
             if debug:
-                print 'ok4'
+                print('ok4')
         else:
             if debug:
                 print(hmin, hnas, hmax, hpoe)
