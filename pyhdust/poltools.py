@@ -1659,6 +1659,18 @@ def genAllLog(path=None, sigtol=lambda sigm: 1.4*sigm, autochoose=False, delta=3
     "calib", "dark", "flat", "bias" and "tmp". You can use "tmp" subdirectore to
     place all dummy subdirectories into.
 
+    Case there are standard stars to be used from another night, please, create
+    a plain text file called std.link within the night directory:
+        - Its content must have one or two lines with an average angle for
+          the missing calcite and the night of the same mission whose standard
+          is to be used.
+        - If there are no standard star in NONE night of the mission, use the
+          `s` token (which means `skip`) instead of the night indicator.
+        - An example of std.link content (inside 12set09/std.link, see it for
+          more details):
+            140.0  12set08
+            172.0  s
+
     """
 
     if path == None or path == '.':
